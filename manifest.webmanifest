@@ -5,7 +5,7 @@
   "display": "standalone",
   "background_color": "#f7fbf7",
   "theme_color": "#f7fbf7",
-  "description": "A private, local-first health tracker.",
+  "description": "A private, local-first tracker for health, reading, writing, and personal patterns.",
   "icons": [
     {
       "src": "icon-192.png",

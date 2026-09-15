@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f7fbf7" />
+  <meta name="description" content="A private, local-first tracker for health, reading, writing, and personal patterns." />
+  <meta property="og:title" content="Verdant Health Tracker" />
+  <meta property="og:description" content="Track health, reading, and writing. See the patterns." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://verdant-health-tracker.ardent-nova-4476.chatgpt.site" />
+  <meta property="og:image" content="https://verdant-health-tracker.ardent-nova-4476.chatgpt.site/og-v3.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Verdant Health Tracker" />
+  <meta name="twitter:description" content="Track health, reading, and writing. See the patterns." />
+  <meta name="twitter:image" content="https://verdant-health-tracker.ardent-nova-4476.chatgpt.site/og-v3.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Verdant" />
@@ -32,7 +42,7 @@
         <input id="unlockPin" inputmode="numeric" type="password" maxlength="12" placeholder="PIN" autocomplete="current-password" />
         <button id="unlockBtn" class="primary">Unlock</button>
       </div>
-      <p id="authError" class="error"></p>
+      <p id="authError" class="error" role="alert"></p>
     </section>
 
     <section id="mainApp" class="screen hidden">
@@ -76,6 +86,16 @@
               <strong id="metricExercise">—</strong>
               <small id="metricExerciseSub">0 min today</small>
             </article>
+            <article class="metric-card">
+              <span class="metric-label">Reading</span>
+              <strong id="metricReading">—</strong>
+              <small id="metricReadingSub">0 min today</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">Writing</span>
+              <strong id="metricWriting">—</strong>
+              <small id="metricWritingSub">0 min today</small>
+            </article>
           </div>
 
           <section class="section-card">
@@ -103,7 +123,7 @@
               <input id="weightValue" type="number" inputmode="decimal" step="0.1" placeholder="70.0" />
               <select id="weightUnit">
                 <option value="kg">kg</option>
-                <option value="lb">lb</option>
+                <option value="jin">斤</option>
               </select>
             </div>
             <input id="weightDate" type="datetime-local" />
@@ -111,28 +131,326 @@
           </div>
 
           <div class="form-card">
-            <h3>Sleep</h3>
-            <input id="sleepHours" type="number" inputmode="decimal" step="0.1" min="0" max="24" placeholder="7.5 hours" />
-            <input id="sleepDate" type="date" />
+            <div class="form-heading">
+              <div>
+                <p class="eyebrow">REST</p>
+                <h3>Sleep</h3>
+              </div>
+              <span id="sleepDurationPreview" class="estimate-pill">—</span>
+            </div>
+            <div class="two-col">
+              <label class="field-label" for="sleepStart">Fell asleep
+                <input id="sleepStart" type="datetime-local" />
+              </label>
+              <label class="field-label" for="sleepEnd">Woke up
+                <input id="sleepEnd" type="datetime-local" />
+              </label>
+            </div>
+            <p id="sleepDurationHelp" class="field-help">Duration is calculated automatically.</p>
+            <label class="field-label" for="sleepTrouble">Trouble sleeping?
+              <select id="sleepTrouble">
+                <option value="no">No</option>
+                <option value="a-little">A little</option>
+                <option value="yes">Yes</option>
+              </select>
+            </label>
+            <label class="range-field" for="sleepQuality">
+              <span>Sleep quality <output id="sleepQualityOutput" for="sleepQuality">7 / 10</output></span>
+              <input id="sleepQuality" type="range" min="1" max="10" value="7" />
+            </label>
+            <label class="field-label" for="sleepNote">Sleep note
+              <textarea id="sleepNote" rows="2" placeholder="What made sleep easy or difficult?"></textarea>
+            </label>
             <button id="saveSleep" class="primary">Save sleep</button>
           </div>
 
           <div class="form-card">
-            <h3>Food</h3>
-            <input id="foodName" type="text" placeholder="e.g. chicken rice bowl" />
-            <input id="foodCalories" type="number" inputmode="numeric" min="0" placeholder="Calories (optional)" />
-            <input id="foodDate" type="datetime-local" />
+            <div class="form-heading">
+              <div>
+                <p class="eyebrow">NOURISHMENT</p>
+                <h3>Food</h3>
+              </div>
+              <span id="foodCaloriePreview" class="estimate-pill">Add details</span>
+            </div>
+            <div class="two-col">
+              <label class="field-label" for="foodMeal">Meal
+                <select id="foodMeal">
+                  <option value="breakfast">Breakfast</option>
+                  <option value="lunch">Lunch</option>
+                  <option value="dinner">Dinner</option>
+                  <option value="snack">Snack</option>
+                  <option value="supplement">Supplement</option>
+                </select>
+              </label>
+              <label class="field-label" for="foodCategory">Food group
+                <select id="foodCategory">
+                  <option value="carbohydrate">Carbohydrate</option>
+                  <option value="protein">Protein</option>
+                  <option value="fiber">Vegetables, fruit & fiber</option>
+                  <option value="fat">Healthy fats</option>
+                  <option value="dairy">Dairy</option>
+                  <option value="beverage">Beverage</option>
+                  <option value="supplement">Supplement</option>
+                  <option value="other">Other / mixed meal</option>
+                </select>
+              </label>
+            </div>
+            <label class="field-label" for="foodName">What did you have?
+              <input id="foodName" type="text" placeholder="e.g. cooked brown rice" autocomplete="off" />
+            </label>
+            <div class="amount-row">
+              <label class="field-label" for="foodAmount">How much?
+                <input id="foodAmount" type="number" inputmode="decimal" min="0" step="0.1" placeholder="1" />
+              </label>
+              <label class="field-label" for="foodUnit">Unit
+                <select id="foodUnit">
+                  <option value="serving">serving</option>
+                  <option value="g">g</option>
+                  <option value="ml">ml</option>
+                  <option value="oz">oz</option>
+                  <option value="cup">cup</option>
+                  <option value="tbsp">tbsp</option>
+                  <option value="tsp">tsp</option>
+                  <option value="piece">piece</option>
+                </select>
+              </label>
+            </div>
+            <label class="field-label" for="foodCalories">Estimated calories
+              <input id="foodCalories" type="number" inputmode="numeric" min="0" placeholder="Calculated automatically" />
+            </label>
+            <p id="foodEstimateMeta" class="field-help">Enter a food and amount. You can correct the estimate before saving.</p>
+            <label class="field-label" for="foodDate">Time
+              <input id="foodDate" type="datetime-local" />
+            </label>
+            <label class="range-field" for="appetiteRating">
+              <span>Appetite regulation today <output id="appetiteRatingOutput" for="appetiteRating">7 / 10</output></span>
+              <input id="appetiteRating" type="range" min="1" max="10" value="7" />
+            </label>
+            <label class="field-label" for="appetiteNote">Appetite note
+              <textarea id="appetiteNote" rows="2" placeholder="How steady, satisfied, or in control did you feel?"></textarea>
+            </label>
             <button id="saveFood" class="primary">Save food</button>
           </div>
 
           <div class="form-card">
-            <h3>Exercise</h3>
-            <input id="exerciseName" type="text" placeholder="e.g. walk, strength, tennis" />
-            <input id="exerciseMinutes" type="number" inputmode="numeric" min="1" placeholder="Minutes" />
-            <input id="exerciseCalories" type="number" inputmode="numeric" min="0" placeholder="Calories burned (optional)" />
-            <input id="exerciseDate" type="datetime-local" />
+            <div class="form-heading">
+              <div>
+                <p class="eyebrow">MOVEMENT</p>
+                <h3>Exercise</h3>
+              </div>
+              <span id="exerciseCaloriePreview" class="estimate-pill">Add details</span>
+            </div>
+            <div class="two-col">
+              <label class="field-label" for="exerciseCategory">Category
+                <select id="exerciseCategory">
+                  <option value="strength">Strength training</option>
+                  <option value="cardio">Cardio</option>
+                  <option value="flexibility">Flexibility</option>
+                  <option value="dance">Dance</option>
+                  <option value="chinese">Chinese practice</option>
+                </select>
+              </label>
+              <label class="field-label" for="exerciseIntensity">Intensity
+                <select id="exerciseIntensity">
+                  <option value="light">Light</option>
+                  <option value="moderate" selected>Moderate</option>
+                  <option value="vigorous">Vigorous</option>
+                </select>
+              </label>
+            </div>
+            <label class="field-label" for="exerciseName">Activity
+              <input id="exerciseName" type="text" placeholder="e.g. hiking, swimming, treadmill running" autocomplete="off" />
+            </label>
+            <div class="two-col">
+              <label class="field-label" for="exerciseMinutes">Time
+                <span class="input-suffix">
+                  <input id="exerciseMinutes" type="number" inputmode="numeric" min="1" placeholder="30" />
+                  <span>min</span>
+                </span>
+              </label>
+              <label class="field-label" for="exerciseCalories">Estimated calories
+                <input id="exerciseCalories" type="number" inputmode="numeric" min="0" placeholder="Automatic" />
+              </label>
+            </div>
+            <p id="exerciseEstimateMeta" class="field-help">Based on activity, intensity, time, and your latest weight.</p>
+            <label class="field-label" for="exerciseDate">Time
+              <input id="exerciseDate" type="datetime-local" />
+            </label>
+            <div class="reflection-group" aria-labelledby="movementReflectionTitle">
+              <h4 id="movementReflectionTitle">How did your body feel today?</h4>
+              <label class="range-field" for="muscleRating">
+                <span>Muscles & stability <output id="muscleRatingOutput" for="muscleRating">7 / 10</output></span>
+                <input id="muscleRating" type="range" min="1" max="10" value="7" />
+              </label>
+              <label class="range-field" for="mobilityRating">
+                <span>Mobility & flexibility <output id="mobilityRatingOutput" for="mobilityRating">7 / 10</output></span>
+                <input id="mobilityRating" type="range" min="1" max="10" value="7" />
+              </label>
+              <label class="range-field" for="breathRating">
+                <span>Breath & stamina <output id="breathRatingOutput" for="breathRating">7 / 10</output></span>
+                <input id="breathRating" type="range" min="1" max="10" value="7" />
+              </label>
+            </div>
+            <label class="field-label" for="exerciseNote">Movement note
+              <textarea id="exerciseNote" rows="2" placeholder="Anything you noticed about comfort, balance, or ease? "></textarea>
+            </label>
             <button id="saveExercise" class="primary">Save exercise</button>
           </div>
+
+          <div class="form-card">
+            <div class="form-heading">
+              <div>
+                <p class="eyebrow">LEARNING</p>
+                <h3>Reading</h3>
+              </div>
+              <span id="readingDurationPreview" class="estimate-pill">—</span>
+            </div>
+            <div class="two-col">
+              <label class="field-label" for="readingStart">Started
+                <input id="readingStart" type="datetime-local" />
+              </label>
+              <label class="field-label" for="readingEnd">Finished
+                <input id="readingEnd" type="datetime-local" />
+              </label>
+            </div>
+            <p id="readingDurationHelp" class="field-help">Length is calculated automatically.</p>
+            <label class="field-label" for="readingTitle">Book title
+              <input id="readingTitle" type="text" placeholder="What are you reading?" autocomplete="off" />
+            </label>
+            <label class="field-label" for="readingCategory">Category
+              <select id="readingCategory">
+                <option value="fiction">Fiction</option>
+                <option value="nonfiction">Nonfiction</option>
+                <option value="biography">Biography & memoir</option>
+                <option value="health">Health & wellbeing</option>
+                <option value="business">Business & work</option>
+                <option value="history">History</option>
+                <option value="science">Science & technology</option>
+                <option value="personal-growth">Personal growth</option>
+                <option value="poetry">Poetry</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label class="field-label" for="readingNote">Reading note
+              <textarea id="readingNote" rows="3" placeholder="A thought, quote, or idea to remember"></textarea>
+            </label>
+            <button id="saveReading" class="primary">Save reading</button>
+          </div>
+
+          <div class="form-card">
+            <div class="form-heading">
+              <div>
+                <p class="eyebrow">CREATION</p>
+                <h3>Writing</h3>
+              </div>
+              <span id="writingDurationPreview" class="estimate-pill">—</span>
+            </div>
+            <div class="two-col">
+              <label class="field-label" for="writingStart">Started
+                <input id="writingStart" type="datetime-local" />
+              </label>
+              <label class="field-label" for="writingEnd">Finished
+                <input id="writingEnd" type="datetime-local" />
+              </label>
+            </div>
+            <p id="writingDurationHelp" class="field-help">Length is calculated automatically.</p>
+            <label class="field-label" for="writingTopic">Project or topic
+              <input id="writingTopic" type="text" placeholder="What did you work on?" autocomplete="off" />
+            </label>
+            <label class="field-label" for="writingCategory">Category
+              <select id="writingCategory">
+                <option value="journal">Journal</option>
+                <option value="creative">Creative writing</option>
+                <option value="work">Work</option>
+                <option value="study">Study & research</option>
+                <option value="planning">Planning</option>
+                <option value="correspondence">Correspondence</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label class="field-label" for="writingNote">Writing note
+              <textarea id="writingNote" rows="3" placeholder="What flowed, what felt difficult, or what comes next?"></textarea>
+            </label>
+            <button id="saveWriting" class="primary">Save writing</button>
+          </div>
+        </section>
+
+        <section id="insightsView" class="view hidden">
+          <div class="section-title insights-title">
+            <div>
+              <p class="eyebrow">PATTERNS</p>
+              <h2>Trends & insights</h2>
+              <p id="insightDateRange" class="muted">Your recent health rhythm.</p>
+            </div>
+            <div class="segmented" id="insightPeriod" aria-label="Summary period">
+              <button class="seg active" data-period="week">Week</button>
+              <button class="seg" data-period="month">Month</button>
+              <button class="seg" data-period="quarter">Quarter</button>
+            </div>
+          </div>
+
+          <div id="summaryMetrics" class="summary-grid"></div>
+
+          <section class="section-card insight-card">
+            <div class="chart-head">
+              <div><p class="eyebrow">REST</p><h3>Sleep rhythm</h3></div>
+              <span id="sleepChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="sleepChart" class="trend-chart" role="img" aria-label="Sleep duration and quality trend" aria-describedby="sleepChartSummary"></canvas>
+            <p id="sleepChartSummary" class="chart-summary muted small"></p>
+          </section>
+
+          <section class="section-card insight-card">
+            <div class="chart-head">
+              <div><p class="eyebrow">NOURISHMENT</p><h3>Food energy</h3></div>
+              <span id="foodChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="foodChart" class="trend-chart" role="img" aria-label="Daily estimated food calories trend" aria-describedby="foodChartSummary"></canvas>
+            <p id="foodChartSummary" class="chart-summary muted small"></p>
+          </section>
+
+          <section class="section-card insight-card">
+            <div class="chart-head">
+              <div><p class="eyebrow">MOVEMENT</p><h3>Active time</h3></div>
+              <span id="exerciseChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="exerciseChart" class="trend-chart" role="img" aria-label="Daily exercise minutes trend" aria-describedby="exerciseChartSummary"></canvas>
+            <p id="exerciseChartSummary" class="chart-summary muted small"></p>
+          </section>
+
+          <section class="section-card insight-card">
+            <div class="chart-head">
+              <div><p class="eyebrow">BODY</p><h3>Weight trend</h3></div>
+              <span id="weightChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="weightChart" class="trend-chart" role="img" aria-label="Weight trend" aria-describedby="weightChartSummary"></canvas>
+            <p id="weightChartSummary" class="chart-summary muted small"></p>
+          </section>
+
+          <section class="section-card insight-card">
+            <div class="chart-head">
+              <div><p class="eyebrow">LEARNING</p><h3>Reading time</h3></div>
+              <span id="readingChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="readingChart" class="trend-chart" role="img" aria-label="Daily reading minutes trend" aria-describedby="readingChartSummary"></canvas>
+            <p id="readingChartSummary" class="chart-summary muted small"></p>
+          </section>
+
+          <section class="section-card insight-card">
+            <div class="chart-head">
+              <div><p class="eyebrow">CREATION</p><h3>Writing time</h3></div>
+              <span id="writingChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="writingChart" class="trend-chart" role="img" aria-label="Daily writing minutes trend" aria-describedby="writingChartSummary"></canvas>
+            <p id="writingChartSummary" class="chart-summary muted small"></p>
+          </section>
+
+          <section class="section-card pattern-card">
+            <div class="section-head">
+              <div><p class="eyebrow">ANALYSIS</p><h3>Patterns worth noticing</h3></div>
+            </div>
+            <div id="patternInsights" class="pattern-list"></div>
+          </section>
         </section>
 
         <section id="historyView" class="view hidden">
@@ -145,6 +463,8 @@
               <button class="seg" data-filter="sleep">Sleep</button>
               <button class="seg" data-filter="food">Food</button>
               <button class="seg" data-filter="exercise">Exercise</button>
+              <button class="seg" data-filter="reading">Reading</button>
+              <button class="seg" data-filter="writing">Writing</button>
             </div>
           </div>
           <div id="historyEntries" class="entry-list"></div>
@@ -159,6 +479,11 @@
           <div class="settings-card">
             <h3>Encrypted local storage</h3>
             <p class="muted small">Your entries stay on this device. They are encrypted with your PIN before being stored.</p>
+          </div>
+
+          <div class="settings-card">
+            <h3>About calorie estimates</h3>
+            <p class="muted small">Food estimates use an on-device reference set based on <a href="https://fdc.nal.usda.gov/" target="_blank" rel="noopener noreferrer">USDA FoodData Central</a>. Exercise estimates use MET values from the <a href="https://pacompendium.com/adult-compendium/" target="_blank" rel="noopener noreferrer">2024 Compendium of Physical Activities</a>, time, intensity, and your latest weight. Both can differ from your actual energy intake or use.</p>
           </div>
 
           <div class="settings-card">
@@ -180,13 +505,14 @@
       </main>
 
       <nav class="tabbar">
-        <button class="tab active" data-nav="dashboard"><span>◌</span><small>Today</small></button>
-        <button class="tab" data-nav="add"><span>＋</span><small>Add</small></button>
-        <button class="tab" data-nav="history"><span>≋</span><small>History</small></button>
-        <button class="tab" data-nav="settings"><span>⚙︎</span><small>Settings</small></button>
+        <button class="tab active" data-nav="dashboard" aria-current="page"><span aria-hidden="true">◌</span><small>Today</small></button>
+        <button class="tab" data-nav="add"><span aria-hidden="true">＋</span><small>Add</small></button>
+        <button class="tab" data-nav="insights"><span aria-hidden="true">⌁</span><small>Trends</small></button>
+        <button class="tab" data-nav="history"><span aria-hidden="true">≋</span><small>History</small></button>
+        <button class="tab" data-nav="settings"><span aria-hidden="true">⚙︎</span><small>Settings</small></button>
       </nav>
 
-      <div id="toast" class="toast hidden"></div>
+      <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
     </section>
   </div>
   <script src="app.js"></script>
