@@ -1,4 +1,4 @@
-const APP_VERSION = 3;
+const APP_VERSION = 4;
 const STORAGE_KEY = "verdant-vault-v1";
 const SALT_KEY = "verdant-salt-v1";
 const ITERATIONS = 250000;
@@ -21,6 +21,7 @@ const titleCase = (value) => String(value || "")
   .replace(/\b\w/g, (char) => char.toUpperCase());
 
 const icons = {
+  body: "◍",
   weight: "◍",
   sleep: "☾",
   food: "⌁",
@@ -78,6 +79,15 @@ const writingCategoryLabels = {
   correspondence: "Correspondence",
   other: "Other"
 };
+
+const BODY_MEASUREMENTS = [
+  { key: "waist", id: "waistValue", label: "Waist" },
+  { key: "hips", id: "hipsValue", label: "Hips" },
+  { key: "abdomen", id: "abdomenValue", label: "Abdomen" },
+  { key: "chest", id: "chestValue", label: "Chest / bust" },
+  { key: "upperArm", id: "upperArmValue", label: "Upper arm" },
+  { key: "thigh", id: "thighValue", label: "Thigh" }
+];
 
 // Approximate food energy and household portion weights. Values are deliberately
 // editable in the form because recipes, brands, and preparation methods vary.
@@ -240,10 +250,23 @@ function migrateVault(data) {
   const entries = Array.isArray(data?.entries) ? data.entries : [];
   const migratedEntries = entries.map((entry) => {
     const migrated = { ...entry };
-    if (entry.type === "weight" && entry.unit === "lb") {
-      migrated.value = round(Number(entry.value) * 0.45359237, 1);
-      migrated.unit = "kg";
-      migrated.migratedFromUnit = "lb";
+    if (entry.type === "weight") {
+      migrated.type = "body";
+      migrated.weight = entry.unit === "lb"
+        ? round(Number(entry.value) * 0.45359237, 1)
+        : Number(entry.value);
+      migrated.weightUnit = entry.unit === "lb" ? "kg" : (entry.unit || "kg");
+      migrated.measurements = {};
+      migrated.measurementUnit = "cm";
+      if (entry.unit === "lb") migrated.migratedFromUnit = "lb";
+      delete migrated.value;
+      delete migrated.unit;
+    }
+    if (entry.type === "body") {
+      migrated.weight = entry.weight == null ? null : Number(entry.weight);
+      migrated.weightUnit = entry.weightUnit || "kg";
+      migrated.measurements = entry.measurements || {};
+      migrated.measurementUnit = entry.measurementUnit || "cm";
     }
     if (entry.type === "sleep") migrated.hours = Number(entry.hours) || 0;
     if (entry.type === "food") {
@@ -347,7 +370,8 @@ function setDefaultTimedActivity(startId, endId, minutes = 30) {
 function setDefaultDates() {
   const now = new Date();
   const localDateTime = toLocalInputValue(now);
-  ["weightDate", "foodDate", "exerciseDate"].forEach((id) => $(id).value = localDateTime);
+  $("bodyDate").value = todayKey(now);
+  ["foodDate", "exerciseDate"].forEach((id) => $(id).value = localDateTime);
   setDefaultSleepTimes();
   setDefaultTimedActivity("readingStart", "readingEnd");
   setDefaultTimedActivity("writingStart", "writingEnd");
@@ -430,8 +454,50 @@ function weightUnitLabel(unit) {
   return unit === "jin" ? "斤" : unit;
 }
 
+function bodyWeightValue(entry) {
+  return entry.weight ?? entry.value;
+}
+
+function bodyWeightUnit(entry) {
+  return entry.weightUnit || entry.unit || "kg";
+}
+
+function hasBodyWeight(entry) {
+  const value = Number(bodyWeightValue(entry));
+  return Number.isFinite(value) && value > 0;
+}
+
 function weightText(entry) {
-  return `${entry.value} ${weightUnitLabel(entry.unit)}`;
+  return hasBodyWeight(entry)
+    ? `${round(bodyWeightValue(entry), 1)} ${weightUnitLabel(bodyWeightUnit(entry))}`
+    : "";
+}
+
+function measurementCount(entry) {
+  return BODY_MEASUREMENTS.filter(({ key }) => {
+    const value = Number(entry.measurements?.[key]);
+    return Number.isFinite(value) && value > 0;
+  }).length;
+}
+
+function measurementToCm(entry, key) {
+  const value = Number(entry.measurements?.[key]);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return entry.measurementUnit === "in" ? value * 2.54 : value;
+}
+
+function measurementValue(entry, key, unit = "cm") {
+  const cm = measurementToCm(entry, key);
+  if (cm == null) return null;
+  return unit === "in" ? cm / 2.54 : cm;
+}
+
+function measurementDetails(entry, limit = BODY_MEASUREMENTS.length) {
+  const unit = entry.measurementUnit === "in" ? "in" : "cm";
+  return BODY_MEASUREMENTS.map(({ key, label }) => {
+    const value = measurementValue(entry, key, unit);
+    return value == null ? "" : `${label} ${round(value, 1)} ${unit}`;
+  }).filter(Boolean).slice(0, limit);
 }
 
 function renderDashboard() {
@@ -440,19 +506,24 @@ function renderDashboard() {
     weekday: "long", month: "long", day: "numeric"
   }).format(new Date());
 
-  const latestWeight = entriesByType("weight")[0];
+  const bodyEntries = entriesByType("body");
+  const latestBody = bodyEntries[0];
   const latestSleep = entriesByType("sleep")[0];
   const todayFood = entriesByType("food").filter((entry) => todayKey(entry.date) === today);
   const todayExercise = entriesByType("exercise").filter((entry) => todayKey(entry.date) === today);
   const todayReading = entriesByType("reading").filter((entry) => todayKey(entry.date) === today);
   const todayWriting = entriesByType("writing").filter((entry) => todayKey(entry.date) === today);
 
-  if (latestWeight) {
-    $("metricWeight").textContent = weightText(latestWeight);
-    $("metricWeightSub").textContent = formatDateTime(latestWeight.date);
+  if (latestBody) {
+    const count = measurementCount(latestBody);
+    $("metricBody").textContent = hasBodyWeight(latestBody) ? weightText(latestBody) : `${count} measured`;
+    $("metricBodySub").textContent = [
+      count ? `${count} measurement${count === 1 ? "" : "s"}` : "",
+      formatDateOnly(latestBody.date)
+    ].filter(Boolean).join(" · ");
   } else {
-    $("metricWeight").textContent = "—";
-    $("metricWeightSub").textContent = "No entry yet";
+    $("metricBody").textContent = "—";
+    $("metricBodySub").textContent = "No entry yet";
   }
 
   if (latestSleep) {
@@ -497,8 +568,15 @@ function renderHistory() {
 }
 
 function entryText(entry) {
-  if (entry.type === "weight") {
-    return { title: "Weight", value: weightText(entry), sub: formatDateTime(entry.date), note: "" };
+  if (entry.type === "body" || entry.type === "weight") {
+    const details = measurementDetails(entry);
+    const count = details.length;
+    return {
+      title: "Body",
+      value: weightText(entry) || `${count} measurement${count === 1 ? "" : "s"}`,
+      sub: [formatDateOnly(entry.date), ...details].join(" · "),
+      note: entry.note || ""
+    };
   }
   if (entry.type === "sleep") {
     const timing = entry.start && entry.end
@@ -734,13 +812,9 @@ function updateFoodEstimate() {
 }
 
 function latestWeightKg() {
-  const entry = entriesByType("weight")[0];
+  const entry = entriesByType("body").find(hasBodyWeight);
   if (!entry) return { kg: 70, label: "70 kg reference weight", isDefault: true };
-  const kg = entry.unit === "jin"
-    ? Number(entry.value) * 0.5
-    : entry.unit === "lb"
-      ? Number(entry.value) * 0.45359237
-      : Number(entry.value);
+  const kg = kgValue(entry);
   if (!Number.isFinite(kg) || kg <= 0) return { kg: 70, label: "70 kg reference weight", isDefault: true };
   return { kg, label: `latest weight ${weightText(entry)} (${round(kg, 1)} kg)`, isDefault: false };
 }
@@ -819,7 +893,9 @@ function groupDaily(entries, dates, valueForEntry, mode = "sum") {
   const grouped = new Map();
   entries.forEach((entry) => {
     const key = todayKey(entry.date);
-    const value = Number(valueForEntry(entry));
+    const rawValue = valueForEntry(entry);
+    if (rawValue == null || rawValue === "") return;
+    const value = Number(rawValue);
     if (!Number.isFinite(value)) return;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key).push(value);
@@ -835,9 +911,11 @@ function groupDaily(entries, dates, valueForEntry, mode = "sum") {
 }
 
 function kgValue(entry) {
-  if (entry.unit === "jin") return Number(entry.value) * 0.5;
-  if (entry.unit === "lb") return Number(entry.value) * 0.45359237;
-  return Number(entry.value);
+  const unit = bodyWeightUnit(entry);
+  const value = Number(bodyWeightValue(entry));
+  if (unit === "jin") return value * 0.5;
+  if (unit === "lb") return value * 0.45359237;
+  return value;
 }
 
 function formatPeriodRange(dates) {
@@ -850,7 +928,9 @@ function renderInsights() {
   const sleepEntries = entriesForPeriod("sleep", dates);
   const foodEntries = entriesForPeriod("food", dates);
   const exerciseEntries = entriesForPeriod("exercise", dates);
-  const weightEntries = entriesForPeriod("weight", dates);
+  const bodyEntries = entriesForPeriod("body", dates);
+  const weightEntries = bodyEntries.filter(hasBodyWeight);
+  const measurementEntries = bodyEntries.filter((entry) => measurementCount(entry));
   const readingEntries = entriesForPeriod("reading", dates);
   const writingEntries = entriesForPeriod("writing", dates);
 
@@ -871,12 +951,14 @@ function renderInsights() {
   const writingMinutes = writingEntries.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
   const writingDays = new Set(writingEntries.map((entry) => todayKey(entry.date))).size;
   const sortedWeights = [...weightEntries].sort((a, b) => (parseDate(a.date) || 0) - (parseDate(b.date) || 0));
-  const preferredWeightUnit = entriesByType("weight")[0]?.unit === "jin" ? "jin" : "kg";
+  const preferredWeightUnit = bodyWeightUnit(entriesByType("body").find(hasBodyWeight) || {}) === "jin" ? "jin" : "kg";
   const preferredWeightLabel = weightUnitLabel(preferredWeightUnit);
   const displayWeightValue = (entry) => preferredWeightUnit === "jin" ? kgValue(entry) * 2 : kgValue(entry);
   const weightChange = sortedWeights.length > 1
     ? displayWeightValue(sortedWeights.at(-1)) - displayWeightValue(sortedWeights[0])
     : null;
+  const latestMeasurement = entriesByType("body").find((entry) => measurementCount(entry));
+  const preferredMeasurementUnit = latestMeasurement?.measurementUnit === "in" ? "in" : "cm";
 
   $("summaryMetrics").innerHTML = [
     { label: "Average sleep", value: avgSleep == null ? "—" : `${round(avgSleep, 1)} h`, sub: `${sleepEntries.length} nights logged` },
@@ -897,6 +979,9 @@ function renderInsights() {
   const dailyFood = groupDaily(foodEntries, dates, (entry) => entry.calories);
   const dailyExercise = groupDaily(exerciseEntries, dates, (entry) => entry.minutes);
   const dailyWeight = groupDaily(weightEntries, dates, displayWeightValue, "average");
+  const dailyWaist = groupDaily(measurementEntries, dates, (entry) => measurementValue(entry, "waist", preferredMeasurementUnit), "average");
+  const dailyHips = groupDaily(measurementEntries, dates, (entry) => measurementValue(entry, "hips", preferredMeasurementUnit), "average");
+  const dailyAbdomen = groupDaily(measurementEntries, dates, (entry) => measurementValue(entry, "abdomen", preferredMeasurementUnit), "average");
   const dailyReading = groupDaily(readingEntries, dates, (entry) => entry.minutes);
   const dailyWriting = groupDaily(writingEntries, dates, (entry) => entry.minutes);
 
@@ -907,6 +992,16 @@ function renderInsights() {
   drawChart($("foodChart"), dailyFood, { type: "bar", color: "#7ca98b" });
   drawChart($("exerciseChart"), dailyExercise, { type: "bar", color: "#4b8767" });
   drawChart($("weightChart"), dailyWeight, { type: "line", color: "#7d6f9f", tightScale: true });
+  drawChart($("bodyChart"), dailyWaist, {
+    type: "line",
+    color: "#2f6e4f",
+    secondary: dailyHips,
+    secondaryColor: "#b57d49",
+    tertiary: dailyAbdomen,
+    tertiaryColor: "#6686a3",
+    labels: ["Waist", "Hips", "Abdomen"],
+    tightScale: true
+  });
   drawChart($("readingChart"), dailyReading, { type: "bar", color: "#6686a3" });
   drawChart($("writingChart"), dailyWriting, { type: "bar", color: "#a06f62" });
 
@@ -924,8 +1019,25 @@ function renderInsights() {
     : "Log movement to see your active-time rhythm.";
   $("weightChartValue").textContent = sortedWeights.length ? `${round(displayWeightValue(sortedWeights.at(-1)), 1)} ${preferredWeightLabel}` : "No data";
   $("weightChartSummary").textContent = sortedWeights.length > 1
-    ? `${sortedWeights.length} measurements; ${Math.abs(round(weightChange, 1))} ${preferredWeightLabel} ${weightChange > 0 ? "increase" : weightChange < 0 ? "decrease" : "change"} in this period.`
-    : "Two or more measurements are needed to show a weight trend.";
+    ? `${sortedWeights.length} weight entries; ${Math.abs(round(weightChange, 1))} ${preferredWeightLabel} ${weightChange > 0 ? "increase" : weightChange < 0 ? "decrease" : "change"} in this period.`
+    : "Two or more weight entries are needed to show a trend.";
+
+  const latestPeriodMeasurement = [...measurementEntries].sort((a, b) => (parseDate(b.date) || 0) - (parseDate(a.date) || 0))[0];
+  const latestCoreDetails = latestPeriodMeasurement
+    ? ["waist", "hips", "abdomen"].map((key) => {
+      const definition = BODY_MEASUREMENTS.find((item) => item.key === key);
+      const value = measurementValue(latestPeriodMeasurement, key, preferredMeasurementUnit);
+      return value == null ? "" : `${definition.label} ${round(value, 1)} ${preferredMeasurementUnit}`;
+    }).filter(Boolean)
+    : [];
+  $("bodyChartValue").textContent = measurementEntries.length
+    ? `${measurementEntries.length} check-in${measurementEntries.length === 1 ? "" : "s"}`
+    : "No data";
+  $("bodyChartSummary").textContent = latestCoreDetails.length
+    ? `Latest: ${latestCoreDetails.join(", ")}. Monthly measurements are usually enough for a useful long-term trend.`
+    : measurementEntries.length
+      ? `${measurementEntries.length} body check-in${measurementEntries.length === 1 ? "" : "s"}; add waist, hips, or abdomen to chart core measurements.`
+      : "Log a monthly waist, hips, or abdomen measurement to see changes over time.";
 
   $("readingChartValue").textContent = readingMinutes ? formatDurationShort(readingMinutes) : "No data";
   $("readingChartSummary").textContent = readingEntries.length
@@ -936,7 +1048,7 @@ function renderInsights() {
     ? `${writingEntries.length} writing ${writingEntries.length === 1 ? "session" : "sessions"} across ${writingDays} ${writingDays === 1 ? "day" : "days"}.`
     : "Log writing sessions to see your creative rhythm.";
 
-  renderPatternInsights({ dates, sleepEntries, foodEntries, exerciseEntries, readingEntries, writingEntries });
+  renderPatternInsights({ dates, sleepEntries, foodEntries, exerciseEntries, bodyEntries, readingEntries, writingEntries });
 }
 
 function formatAverage(values, suffix = "") {
@@ -944,7 +1056,7 @@ function formatAverage(values, suffix = "") {
   return average == null ? "not rated" : `${round(average, 1)}${suffix}`;
 }
 
-function renderPatternInsights({ dates, sleepEntries, foodEntries, exerciseEntries, readingEntries, writingEntries }) {
+function renderPatternInsights({ dates, sleepEntries, foodEntries, exerciseEntries, bodyEntries, readingEntries, writingEntries }) {
   const patterns = [];
   if (sleepEntries.length >= 3) {
     const average = mean(sleepEntries.map((entry) => entry.hours));
@@ -988,6 +1100,32 @@ function renderPatternInsights({ dates, sleepEntries, foodEntries, exerciseEntri
     });
   } else {
     patterns.push({ symbol: "↗", title: "Movement pattern forming", text: "Two sessions will start showing your preferred movement and body response." });
+  }
+
+  const measurementEntries = [...bodyEntries]
+    .filter((entry) => measurementCount(entry))
+    .sort((a, b) => (parseDate(a.date) || 0) - (parseDate(b.date) || 0));
+  const preferredMeasurementUnit = entriesByType("body").find((entry) => measurementCount(entry))?.measurementUnit === "in" ? "in" : "cm";
+  const comparableMeasurement = ["waist", "hips", "abdomen"].map((key) => ({
+    key,
+    entries: measurementEntries.filter((entry) => measurementValue(entry, key, preferredMeasurementUnit) != null)
+  })).find((item) => item.entries.length >= 2);
+  if (comparableMeasurement) {
+    const definition = BODY_MEASUREMENTS.find((item) => item.key === comparableMeasurement.key);
+    const first = measurementValue(comparableMeasurement.entries[0], comparableMeasurement.key, preferredMeasurementUnit);
+    const latest = measurementValue(comparableMeasurement.entries.at(-1), comparableMeasurement.key, preferredMeasurementUnit);
+    const difference = latest - first;
+    patterns.push({
+      symbol: "◍",
+      title: `${definition.label} trend`,
+      text: `${definition.label} changed by ${difference > 0 ? "+" : ""}${round(difference, 1)} ${preferredMeasurementUnit} from the first to latest check-in in this period. Monthly check-ins will make this trend steadier.`
+    });
+  } else {
+    patterns.push({
+      symbol: "◍",
+      title: "Body trend forming",
+      text: "Two check-ins of the same core measurement will show your first body-dimension trend. Once a month is a useful rhythm."
+    });
   }
 
   if (readingEntries.length >= 2) {
@@ -1061,7 +1199,8 @@ function drawChart(canvas, primary, options = {}) {
 
   const primaryValues = primary.map((point) => point.value).filter(Number.isFinite);
   const secondaryValues = (options.secondary || []).map((point) => point.value).filter(Number.isFinite);
-  if (!primaryValues.length && !secondaryValues.length) {
+  const tertiaryValues = (options.tertiary || []).map((point) => point.value).filter(Number.isFinite);
+  if (!primaryValues.length && !secondaryValues.length && !tertiaryValues.length) {
     context.fillStyle = "#718078";
     context.font = "13px -apple-system, BlinkMacSystemFont, sans-serif";
     context.textAlign = "center";
@@ -1072,7 +1211,7 @@ function drawChart(canvas, primary, options = {}) {
   const padding = { top: options.labels ? 28 : 14, right: 8, bottom: 25, left: 35 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
-  const allValues = [...primaryValues, ...secondaryValues];
+  const allValues = [...primaryValues, ...secondaryValues, ...tertiaryValues];
   let min = options.tightScale ? Math.min(...allValues) : 0;
   let max = Math.max(...allValues, options.maxHint || 0);
   if (options.tightScale) {
@@ -1126,10 +1265,15 @@ function drawChart(canvas, primary, options = {}) {
     drawLineSeries(context, options.secondary, xFor, yFor, options.secondaryColor || "#d09a45", true);
   }
 
+  if (options.tertiary?.length) {
+    drawLineSeries(context, options.tertiary, xFor, yFor, options.tertiaryColor || "#6686a3", true);
+  }
+
   if (options.labels) {
+    const labelColors = [options.color, options.secondaryColor, options.tertiaryColor];
     let labelX = padding.left;
     options.labels.forEach((label, index) => {
-      context.fillStyle = index === 0 ? options.color : options.secondaryColor;
+      context.fillStyle = labelColors[index] || options.color;
       context.fillRect(labelX, 8, 9, 3);
       context.fillStyle = "#607169";
       context.textAlign = "left";
@@ -1269,14 +1413,34 @@ $("foodCalories").addEventListener("input", () => $("foodCalories").dataset.manu
 $("exerciseCalories").addEventListener("input", () => $("exerciseCalories").dataset.manual = "true");
 
 // Save forms
-$("saveWeight").addEventListener("click", async () => {
-  const value = Number($("weightValue").value);
-  const unit = $("weightUnit").value;
-  const date = $("weightDate").value;
-  if (!value || value <= 0 || !date) return toast("Enter weight and date");
-  addEntry("weight", { value, unit }, new Date(date).toISOString());
-  $("weightValue").value = "";
-  await saveAndRender("Weight saved");
+$("saveBody").addEventListener("click", async () => {
+  const weightInput = $("bodyWeightValue").value.trim();
+  const weight = weightInput === "" ? null : Number(weightInput);
+  const measurements = {};
+  let invalidMeasurement = false;
+  BODY_MEASUREMENTS.forEach(({ key, id }) => {
+    const input = $(id).value.trim();
+    if (input === "") return;
+    const value = Number(input);
+    if (!Number.isFinite(value) || value <= 0) invalidMeasurement = true;
+    else measurements[key] = value;
+  });
+  const date = $("bodyDate").value;
+  if (weightInput && (!Number.isFinite(weight) || weight <= 0)) return toast("Check the weight value");
+  if (invalidMeasurement) return toast("Body measurements must be greater than zero");
+  if (weight == null && !Object.keys(measurements).length) return toast("Enter weight, a body measurement, or both");
+  if (!date) return toast("Choose a measurement date");
+  addEntry("body", {
+    weight,
+    weightUnit: $("bodyWeightUnit").value,
+    measurements,
+    measurementUnit: $("measurementUnit").value,
+    note: $("bodyNote").value.trim()
+  }, new Date(`${date}T12:00:00`).toISOString());
+  $("bodyWeightValue").value = "";
+  BODY_MEASUREMENTS.forEach(({ id }) => $(id).value = "");
+  $("bodyNote").value = "";
+  await saveAndRender("Body entry saved");
   updateExerciseEstimate();
 });
 

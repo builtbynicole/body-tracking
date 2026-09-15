@@ -18,8 +18,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Verdant" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.webmanifest?v=4" />
+  <link rel="stylesheet" href="styles.css?v=4" />
   <title>Verdant Health Tracker</title>
 </head>
 <body>
@@ -32,14 +32,14 @@
       <div id="firstRun" class="auth-card hidden">
         <h2>Create your private vault</h2>
         <p class="muted small">Choose a PIN. Your health data will be encrypted on this device.</p>
-        <input id="newPin" inputmode="numeric" type="password" maxlength="12" placeholder="Create PIN" autocomplete="new-password" />
-        <input id="confirmPin" inputmode="numeric" type="password" maxlength="12" placeholder="Confirm PIN" autocomplete="new-password" />
+        <input id="newPin" inputmode="numeric" type="password" maxlength="12" placeholder="Create PIN" aria-label="Create PIN" autocomplete="new-password" />
+        <input id="confirmPin" inputmode="numeric" type="password" maxlength="12" placeholder="Confirm PIN" aria-label="Confirm PIN" autocomplete="new-password" />
         <button id="createVaultBtn" class="primary">Create vault</button>
       </div>
 
       <div id="unlockRun" class="auth-card hidden">
         <h2>Welcome back</h2>
-        <input id="unlockPin" inputmode="numeric" type="password" maxlength="12" placeholder="PIN" autocomplete="current-password" />
+        <input id="unlockPin" inputmode="numeric" type="password" maxlength="12" placeholder="PIN" aria-label="PIN" autocomplete="current-password" />
         <button id="unlockBtn" class="primary">Unlock</button>
       </div>
       <p id="authError" class="error" role="alert"></p>
@@ -67,9 +67,9 @@
 
           <div class="metrics-grid">
             <article class="metric-card">
-              <span class="metric-label">Weight</span>
-              <strong id="metricWeight">—</strong>
-              <small id="metricWeightSub">No entry yet</small>
+              <span class="metric-label">Body</span>
+              <strong id="metricBody">—</strong>
+              <small id="metricBodySub">No entry yet</small>
             </article>
             <article class="metric-card">
               <span class="metric-label">Sleep</span>
@@ -118,16 +118,63 @@
           </div>
 
           <div class="form-card">
-            <h3>Weight</h3>
-            <div class="row">
-              <input id="weightValue" type="number" inputmode="decimal" step="0.1" placeholder="70.0" />
-              <select id="weightUnit">
-                <option value="kg">kg</option>
-                <option value="jin">斤</option>
-              </select>
+            <div class="form-heading">
+              <div>
+                <p class="eyebrow">BODY</p>
+                <h3>Weight & measurements</h3>
+              </div>
+              <span class="estimate-pill">Monthly friendly</span>
             </div>
-            <input id="weightDate" type="datetime-local" />
-            <button id="saveWeight" class="primary">Save weight</button>
+            <p class="field-help">Enter weight, any body measurements, or both. You do not need to fill every field.</p>
+            <h4 class="form-subtitle">Weight <span>optional</span></h4>
+            <div class="row">
+              <label class="field-label sr-label" for="bodyWeightValue">Weight
+                <input id="bodyWeightValue" type="number" inputmode="decimal" min="0" step="0.1" placeholder="70.0" />
+              </label>
+              <label class="field-label sr-label" for="bodyWeightUnit">Weight unit
+                <select id="bodyWeightUnit">
+                  <option value="kg">kg</option>
+                  <option value="jin">斤</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="measurement-heading">
+              <h4 class="form-subtitle">Body measurements <span>optional</span></h4>
+              <label class="compact-select" for="measurementUnit">Unit
+                <select id="measurementUnit">
+                  <option value="cm">cm</option>
+                  <option value="in">in</option>
+                </select>
+              </label>
+            </div>
+            <div class="measurement-grid">
+              <label class="field-label" for="waistValue">Waist
+                <input id="waistValue" type="number" inputmode="decimal" min="0" step="0.1" placeholder="—" />
+              </label>
+              <label class="field-label" for="hipsValue">Hips
+                <input id="hipsValue" type="number" inputmode="decimal" min="0" step="0.1" placeholder="—" />
+              </label>
+              <label class="field-label" for="abdomenValue">Abdomen <span class="label-hint">at navel</span>
+                <input id="abdomenValue" type="number" inputmode="decimal" min="0" step="0.1" placeholder="—" />
+              </label>
+              <label class="field-label" for="chestValue">Chest / bust
+                <input id="chestValue" type="number" inputmode="decimal" min="0" step="0.1" placeholder="—" />
+              </label>
+              <label class="field-label" for="upperArmValue">Upper arm
+                <input id="upperArmValue" type="number" inputmode="decimal" min="0" step="0.1" placeholder="—" />
+              </label>
+              <label class="field-label" for="thighValue">Thigh
+                <input id="thighValue" type="number" inputmode="decimal" min="0" step="0.1" placeholder="—" />
+              </label>
+            </div>
+            <label class="field-label" for="bodyDate">Measurement date
+              <input id="bodyDate" type="date" />
+            </label>
+            <label class="field-label" for="bodyNote">Body note
+              <textarea id="bodyNote" rows="2" placeholder="Optional context, such as time of day or how clothes fit"></textarea>
+            </label>
+            <button id="saveBody" class="primary">Save body entry</button>
           </div>
 
           <div class="form-card">
@@ -429,6 +476,15 @@
 
           <section class="section-card insight-card">
             <div class="chart-head">
+              <div><p class="eyebrow">BODY</p><h3>Measurement trend</h3></div>
+              <span id="bodyChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="bodyChart" class="trend-chart" role="img" aria-label="Waist, hips, and abdomen measurement trends" aria-describedby="bodyChartSummary"></canvas>
+            <p id="bodyChartSummary" class="chart-summary muted small"></p>
+          </section>
+
+          <section class="section-card insight-card">
+            <div class="chart-head">
               <div><p class="eyebrow">LEARNING</p><h3>Reading time</h3></div>
               <span id="readingChartValue" class="chart-value">—</span>
             </div>
@@ -459,7 +515,7 @@
             <h2>All entries</h2>
             <div class="segmented" id="historyFilter">
               <button class="seg active" data-filter="all">All</button>
-              <button class="seg" data-filter="weight">Weight</button>
+              <button class="seg" data-filter="body">Body</button>
               <button class="seg" data-filter="sleep">Sleep</button>
               <button class="seg" data-filter="food">Food</button>
               <button class="seg" data-filter="exercise">Exercise</button>
@@ -515,6 +571,6 @@
       <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
     </section>
   </div>
-  <script src="app.js"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

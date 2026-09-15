@@ -2,8 +2,9 @@
 
 Verdant is a local-first, installable health tracking PWA for iPhone.
 
-## V3 tracks
-- Weight in kilograms or 斤 (1 斤 = 0.5 kg)
+## V4 tracks
+- Combined Body entries: optional weight in kilograms or 斤 (1 斤 = 0.5 kg), plus waist, hips, abdomen (at the navel), chest/bust, upper arm, and thigh in centimetres or inches
+- Monthly body-measurement trends with automatic unit conversion; existing weight records migrate into Body entries without data loss
 - Sleep and wake times, automatic duration, sleep difficulty, quality, and notes
 - Breakfast, lunch, dinner, snacks, and supplements with food groups and portions
 - Automatic, editable food-calorie estimates from an on-device reference set
@@ -12,7 +13,7 @@ Verdant is a local-first, installable health tracking PWA for iPhone.
 - Appetite and movement reflections on 1–10 scales
 - Timed reading sessions with book title, category, automatic duration, and notes
 - Timed writing sessions with project/topic, category, automatic duration, and notes
-- Weekly, monthly, and quarterly trend charts with cautious pattern summaries for health, reading, and writing
+- Weekly, monthly, and quarterly trend charts with cautious pattern summaries for health, body measurements, reading, and writing
 
 ## About calorie estimates
 - Food estimates use approximate energy values and household portion weights stored in the app. Recipes, brands, and preparation methods vary, so the estimate can be corrected before saving.
