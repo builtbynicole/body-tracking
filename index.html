@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7fbf7" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Verdant" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Verdant Health Tracker</title>
+</head>
+<body>
+  <div id="app">
+    <section id="lockScreen" class="screen lock-screen">
+      <div class="leaf-mark">V</div>
+      <h1>Verdant</h1>
+      <p class="muted">Your private health log.</p>
+
+      <div id="firstRun" class="auth-card hidden">
+        <h2>Create your private vault</h2>
+        <p class="muted small">Choose a PIN. Your health data will be encrypted on this device.</p>
+        <input id="newPin" inputmode="numeric" type="password" maxlength="12" placeholder="Create PIN" autocomplete="new-password" />
+        <input id="confirmPin" inputmode="numeric" type="password" maxlength="12" placeholder="Confirm PIN" autocomplete="new-password" />
+        <button id="createVaultBtn" class="primary">Create vault</button>
+      </div>
+
+      <div id="unlockRun" class="auth-card hidden">
+        <h2>Welcome back</h2>
+        <input id="unlockPin" inputmode="numeric" type="password" maxlength="12" placeholder="PIN" autocomplete="current-password" />
+        <button id="unlockBtn" class="primary">Unlock</button>
+      </div>
+      <p id="authError" class="error"></p>
+    </section>
+
+    <section id="mainApp" class="screen hidden">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">VERDANT</p>
+          <h1 id="greeting">Today</h1>
+        </div>
+        <button id="lockBtn" class="icon-btn" aria-label="Lock">⌁</button>
+      </header>
+
+      <main>
+        <section id="dashboardView" class="view">
+          <div class="hero-card">
+            <div>
+              <p class="eyebrow">TODAY</p>
+              <h2 id="heroDate"></h2>
+              <p class="muted">Small inputs. Clear patterns.</p>
+            </div>
+            <div class="hero-orb">🍃</div>
+          </div>
+
+          <div class="metrics-grid">
+            <article class="metric-card">
+              <span class="metric-label">Weight</span>
+              <strong id="metricWeight">—</strong>
+              <small id="metricWeightSub">No entry yet</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">Sleep</span>
+              <strong id="metricSleep">—</strong>
+              <small id="metricSleepSub">No entry yet</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">Food</span>
+              <strong id="metricFood">—</strong>
+              <small id="metricFoodSub">0 entries today</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">Exercise</span>
+              <strong id="metricExercise">—</strong>
+              <small id="metricExerciseSub">0 min today</small>
+            </article>
+          </div>
+
+          <section class="section-card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">RECENT</p>
+                <h3>Your latest entries</h3>
+              </div>
+              <button class="text-btn" data-nav="history">See all</button>
+            </div>
+            <div id="recentEntries" class="entry-list"></div>
+          </section>
+        </section>
+
+        <section id="addView" class="view hidden">
+          <div class="section-title">
+            <p class="eyebrow">QUICK LOG</p>
+            <h2>Add an entry</h2>
+            <p class="muted">Keep it frictionless. You can add more detail later.</p>
+          </div>
+
+          <div class="form-card">
+            <h3>Weight</h3>
+            <div class="row">
+              <input id="weightValue" type="number" inputmode="decimal" step="0.1" placeholder="70.0" />
+              <select id="weightUnit">
+                <option value="kg">kg</option>
+                <option value="lb">lb</option>
+              </select>
+            </div>
+            <input id="weightDate" type="datetime-local" />
+            <button id="saveWeight" class="primary">Save weight</button>
+          </div>
+
+          <div class="form-card">
+            <h3>Sleep</h3>
+            <input id="sleepHours" type="number" inputmode="decimal" step="0.1" min="0" max="24" placeholder="7.5 hours" />
+            <input id="sleepDate" type="date" />
+            <button id="saveSleep" class="primary">Save sleep</button>
+          </div>
+
+          <div class="form-card">
+            <h3>Food</h3>
+            <input id="foodName" type="text" placeholder="e.g. chicken rice bowl" />
+            <input id="foodCalories" type="number" inputmode="numeric" min="0" placeholder="Calories (optional)" />
+            <input id="foodDate" type="datetime-local" />
+            <button id="saveFood" class="primary">Save food</button>
+          </div>
+
+          <div class="form-card">
+            <h3>Exercise</h3>
+            <input id="exerciseName" type="text" placeholder="e.g. walk, strength, tennis" />
+            <input id="exerciseMinutes" type="number" inputmode="numeric" min="1" placeholder="Minutes" />
+            <input id="exerciseCalories" type="number" inputmode="numeric" min="0" placeholder="Calories burned (optional)" />
+            <input id="exerciseDate" type="datetime-local" />
+            <button id="saveExercise" class="primary">Save exercise</button>
+          </div>
+        </section>
+
+        <section id="historyView" class="view hidden">
+          <div class="section-title">
+            <p class="eyebrow">HISTORY</p>
+            <h2>All entries</h2>
+            <div class="segmented" id="historyFilter">
+              <button class="seg active" data-filter="all">All</button>
+              <button class="seg" data-filter="weight">Weight</button>
+              <button class="seg" data-filter="sleep">Sleep</button>
+              <button class="seg" data-filter="food">Food</button>
+              <button class="seg" data-filter="exercise">Exercise</button>
+            </div>
+          </div>
+          <div id="historyEntries" class="entry-list"></div>
+        </section>
+
+        <section id="settingsView" class="view hidden">
+          <div class="section-title">
+            <p class="eyebrow">SETTINGS</p>
+            <h2>Privacy & backup</h2>
+          </div>
+
+          <div class="settings-card">
+            <h3>Encrypted local storage</h3>
+            <p class="muted small">Your entries stay on this device. They are encrypted with your PIN before being stored.</p>
+          </div>
+
+          <div class="settings-card">
+            <h3>Backup</h3>
+            <p class="muted small">Export an encrypted backup file. Keep it somewhere private, such as iCloud Drive.</p>
+            <button id="exportBtn" class="secondary">Export encrypted backup</button>
+            <label class="file-label">
+              Import encrypted backup
+              <input id="importFile" type="file" accept=".json,application/json" />
+            </label>
+          </div>
+
+          <div class="settings-card danger-card">
+            <h3>Erase local data</h3>
+            <p class="muted small">This permanently deletes your local vault from this browser.</p>
+            <button id="eraseBtn" class="danger">Erase everything</button>
+          </div>
+        </section>
+      </main>
+
+      <nav class="tabbar">
+        <button class="tab active" data-nav="dashboard"><span>◌</span><small>Today</small></button>
+        <button class="tab" data-nav="add"><span>＋</span><small>Add</small></button>
+        <button class="tab" data-nav="history"><span>≋</span><small>History</small></button>
+        <button class="tab" data-nav="settings"><span>⚙︎</span><small>Settings</small></button>
+      </nav>
+
+      <div id="toast" class="toast hidden"></div>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
