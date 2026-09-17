@@ -1,10 +1,10 @@
-const CACHE = "verdant-v5-1";
+const CACHE = "verdant-v6-1";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=5.1",
-  "./app.js?v=5.1",
-  "./manifest.webmanifest?v=5.1",
+  "./styles.css?v=6.1",
+  "./app.js?v=6.1",
+  "./manifest.webmanifest?v=6.1",
   "./og-v5.png",
   "./icon-192.png",
   "./icon-512.png"

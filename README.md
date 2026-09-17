@@ -2,9 +2,15 @@
 
 Verdant is a local-first, installable health tracking PWA for iPhone.
 
-## V5 tracks
-- Five calm top-level areas—Body, Nourish, Move, Focus, and Care—with only one detailed form visible at a time
-- Combined Body entries: optional weight in kilograms or 斤 (1 斤 = 0.5 kg), plus waist, hips, abdomen (at the navel), chest/bust, upper arm, and thigh in centimetres or inches
+## V6 tracks
+- A mobile-first Add screen with one-tap routines and one visible question at a time—no dropdown-heavy form wall
+- Visible answer choices that advance automatically, with Back and Cancel always available
+- Reusable custom Quick entries created after saving a repeated record, plus built-in 250 mL water and Vitamin D actions
+- Five calm analysis areas—Body, Nourish, Move, Focus, and Care—without forcing those categories into the logging flow
+- Water intake in mL, cups, or fluid ounces, normalized to mL for daily and longer-term analysis
+- Daily check-ins for appetite regulation, muscle/stability, mobility/flexibility, and breath/stamina, recorded once per day instead of repeated on every meal or exercise record
+- Separate morning and evening weight entries with exact time in kilograms or 斤 (1 斤 = 0.5 kg)
+- Monthly body measurements for waist, hips, abdomen (at the navel), chest/bust, upper arm, and thigh in centimetres or inches
 - Monthly body-measurement trends with automatic unit conversion; existing weight records migrate into Body entries without data loss
 - Sleep and wake times, automatic duration, sleep difficulty, quality, and notes
 - Health events including bowel movements, period start/end, diarrhea, vomiting, symptoms, and custom events

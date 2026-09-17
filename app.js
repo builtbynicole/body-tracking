@@ -1,10 +1,10 @@
-const APP_VERSION = 5;
+const APP_VERSION = 6;
 const STORAGE_KEY = "verdant-vault-v1";
 const SALT_KEY = "verdant-salt-v1";
 const ITERATIONS = 250000;
 const PERIOD_DAYS = { week: 7, month: 30, quarter: 90 };
 
-let vault = { version: APP_VERSION, entries: [] };
+let vault = { version: APP_VERSION, entries: [], quickEntries: [] };
 let cryptoKey = null;
 let currentFilter = "all";
 let currentPeriod = "week";
@@ -14,6 +14,9 @@ let currentLogForm = "body";
 let selectedLogFormsByGroup = { body: "body", nourish: "food", move: "exercise", focus: "reading", care: "care" };
 let inactivityTimer = null;
 let resizeTimer = null;
+let activeFlow = null;
+let activeFlowStep = 0;
+let flowAnswers = {};
 
 const $ = (id) => document.getElementById(id);
 const round = (value, places = 1) => {
@@ -29,12 +32,14 @@ const icons = {
   weight: "◍",
   sleep: "☾",
   food: "⌁",
+  water: "💧",
   medication: "✦",
   event: "!",
   exercise: "↗",
   reading: "▤",
   writing: "✎",
-  care: "✓"
+  care: "✓",
+  checkin: "○"
 };
 
 const mealLabels = {
@@ -99,10 +104,10 @@ const CARE_INPUTS = [
 
 const RECORD_GROUPS = {
   body: ["body", "sleep", "event"],
-  nourish: ["food", "medication"],
+  nourish: ["food", "water", "medication"],
   move: ["exercise"],
   focus: ["reading", "writing"],
-  care: ["care"]
+  care: ["care", "checkin"]
 };
 
 const LOG_GROUP_DEFAULTS = {
@@ -322,6 +327,7 @@ function migrateVault(data) {
       migrated.weightUnit = entry.unit === "lb" ? "kg" : (entry.unit || "kg");
       migrated.measurements = {};
       migrated.measurementUnit = "cm";
+      migrated.weightSession = (parseDate(entry.date)?.getHours() || 0) < 14 ? "morning" : "evening";
       if (entry.unit === "lb") migrated.migratedFromUnit = "lb";
       delete migrated.value;
       delete migrated.unit;
@@ -330,6 +336,7 @@ function migrateVault(data) {
       migrated.weightUnit = entry.weightUnit || "kg";
       migrated.measurements = entry.measurements || {};
       migrated.measurementUnit = entry.measurementUnit || "cm";
+      migrated.weightSession = entry.weightSession || (hasBodyWeight(entry) ? ((parseDate(entry.date)?.getHours() || 0) < 14 ? "morning" : "evening") : null);
     } else if (entry.type === "sleep") {
       migrated.hours = Number(entry.hours) || 0;
     } else if (entry.type === "food" && (entry.meal === "supplement" || entry.category === "supplement")) {
@@ -372,6 +379,13 @@ function migrateVault(data) {
       migrated.intensity = entry.intensity || "moderate";
     } else if (entry.type === "reading" || entry.type === "writing") {
       migrated.minutes = Number(entry.minutes) || 0;
+    } else if (entry.type === "water") {
+      const amount = Number(entry.amount) || 0;
+      migrated.amount = amount;
+      migrated.unit = ["ml", "cup", "oz"].includes(entry.unit) ? entry.unit : "ml";
+      migrated.ml = Number(entry.ml) || (migrated.unit === "cup" ? amount * 240 : migrated.unit === "oz" ? amount * 29.5735 : amount);
+    } else if (entry.type === "checkin") {
+      ["appetite", "strength", "mobility", "breath"].forEach((key) => migrated[key] = Number(entry[key]) || null);
     }
     return migrated;
   });
@@ -379,7 +393,8 @@ function migrateVault(data) {
   return {
     ...data,
     version: APP_VERSION,
-    entries: migratedEntries
+    entries: migratedEntries,
+    quickEntries: Array.isArray(data?.quickEntries) ? data.quickEntries : []
   };
 }
 
@@ -387,7 +402,7 @@ async function createVault(pin) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   localStorage.setItem(SALT_KEY, bytesToB64(salt));
   cryptoKey = await deriveKey(pin, salt);
-  vault = { version: APP_VERSION, entries: [] };
+  vault = { version: APP_VERSION, entries: [], quickEntries: [] };
   await encryptVault();
 }
 
@@ -403,7 +418,7 @@ async function unlockVault(pin) {
 
 function lockApp() {
   cryptoKey = null;
-  vault = { version: APP_VERSION, entries: [] };
+  vault = { version: APP_VERSION, entries: [], quickEntries: [] };
   $("mainApp").classList.add("hidden");
   $("lockScreen").classList.remove("hidden");
   showAuthState();
@@ -431,7 +446,7 @@ function enterApp() {
   $("unlockPin").value = "";
   showView("dashboard");
   setDefaultDates();
-  selectLogGroup(currentLogGroup);
+  renderLogHome();
   renderAll();
   resetInactivity();
 }
@@ -520,15 +535,17 @@ function addDays(date, number) {
 }
 
 function addEntry(type, payload, date) {
-  vault.entries.push({
+  const entry = {
     id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
     type,
     schemaVersion: 1,
     date,
     createdAt: new Date().toISOString(),
     ...payload
-  });
+  };
+  vault.entries.push(entry);
   vault.entries.sort((a, b) => (parseDate(b.date)?.getTime() || 0) - (parseDate(a.date)?.getTime() || 0));
+  return entry;
 }
 
 async function saveAndRender(message) {
@@ -540,6 +557,8 @@ async function saveAndRender(message) {
 function renderAll() {
   renderDashboard();
   renderHistory();
+  renderQuickEntries();
+  renderQuickEntrySettings();
   if (!$("insightsView").classList.contains("hidden")) renderInsights();
 }
 
@@ -682,21 +701,25 @@ function renderDashboard() {
 
   const bodyEntries = entriesByType("body");
   const latestBody = bodyEntries[0];
+  const latestWeight = bodyEntries.find(hasBodyWeight);
   const latestSleep = entriesByType("sleep")[0];
   const todayFood = entriesByType("food").filter((entry) => todayKey(entry.date) === today);
+  const todayWater = entriesByType("water").filter((entry) => todayKey(entry.date) === today);
   const todayExercise = entriesByType("exercise").filter((entry) => todayKey(entry.date) === today);
   const todayReading = entriesByType("reading").filter((entry) => todayKey(entry.date) === today);
   const todayWriting = entriesByType("writing").filter((entry) => todayKey(entry.date) === today);
   const todayMedication = entriesByType("medication").filter((entry) => todayKey(entry.date) === today);
   const todayEvents = entriesByType("event").filter((entry) => todayKey(entry.date) === today);
   const todayCare = entriesByType("care").filter((entry) => todayKey(entry.date) === today);
+  const todayCheckin = entriesByType("checkin").find((entry) => todayKey(entry.date) === today);
 
-  if (latestBody) {
+  if (latestBody || latestWeight) {
     const count = measurementCount(latestBody);
-    $("metricBody").textContent = hasBodyWeight(latestBody) ? weightText(latestBody) : `${count} measured`;
+    $("metricBody").textContent = latestWeight ? weightText(latestWeight) : `${count} measured`;
     $("metricBodySub").textContent = [
+      latestWeight?.weightSession ? `${titleCase(latestWeight.weightSession)} · ${formatDateTime(latestWeight.date)}` : "",
       count ? `${count} measurement${count === 1 ? "" : "s"}` : "",
-      formatDateOnly(latestBody.date),
+      !latestWeight && latestBody ? formatDateOnly(latestBody.date) : "",
       todayEvents.length ? `${todayEvents.length} event${todayEvents.length === 1 ? "" : "s"} today` : ""
     ].filter(Boolean).join(" · ");
   } else if (todayEvents.length) {
@@ -718,8 +741,9 @@ function renderDashboard() {
   }
 
   const calorieTotal = todayFood.reduce((sum, entry) => sum + (Number(entry.calories) || 0), 0);
+  const waterMl = todayWater.reduce((sum, entry) => sum + (Number(entry.ml) || 0), 0);
   $("metricFood").textContent = calorieTotal ? `${Math.round(calorieTotal)} kcal` : `${todayFood.length + todayMedication.length}`;
-  $("metricFoodSub").textContent = `${todayFood.length} food · ${todayMedication.length} dose${todayMedication.length === 1 ? "" : "s"}`;
+  $("metricFoodSub").textContent = `${waterMl ? `${round(waterMl / 1000, 2)} L water · ` : ""}${todayFood.length} food · ${todayMedication.length} dose${todayMedication.length === 1 ? "" : "s"}`;
 
   const minutes = todayExercise.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
   $("metricExercise").textContent = minutes ? `${minutes} min` : "—";
@@ -732,10 +756,8 @@ function renderDashboard() {
   $("metricFocusSub").textContent = `${todayReading.length} reading · ${todayWriting.length} writing`;
 
   const careActions = new Set(todayCare.flatMap(careActionLabels));
-  $("metricCare").textContent = careActions.size ? `${careActions.size} done` : "—";
-  $("metricCareSub").textContent = todayCare.length
-    ? `${todayCare.length} check-in${todayCare.length === 1 ? "" : "s"} today`
-    : "Nothing logged today";
+  $("metricCare").textContent = careActions.size ? `${careActions.size} done` : (todayCheckin ? `${round(mean([todayCheckin.appetite, todayCheckin.strength, todayCheckin.mobility, todayCheckin.breath]), 1)}/10` : "—");
+  $("metricCareSub").textContent = [todayCare.length ? `${todayCare.length} care log${todayCare.length === 1 ? "" : "s"}` : "", todayCheckin ? "daily check-in done" : ""].filter(Boolean).join(" · ") || "Nothing logged today";
 
   renderEntryList($("recentEntries"), vault.entries.slice(0, 6), false);
 }
@@ -759,7 +781,7 @@ function entryText(entry) {
     return {
       title: "Body",
       value: weightText(entry) || `${count} measurement${count === 1 ? "" : "s"}`,
-      sub: [formatDateOnly(entry.date), ...details].join(" · "),
+      sub: [hasBodyWeight(entry) ? formatDateTime(entry.date) : formatDateOnly(entry.date), entry.weightSession ? titleCase(entry.weightSession) : "", ...details].filter(Boolean).join(" · "),
       note: entry.note || ""
     };
   }
@@ -799,7 +821,15 @@ function entryText(entry) {
       title: entry.name || "Food",
       value: entry.calories != null ? `${Math.round(entry.calories)} kcal` : "",
       sub: [meal, group, amount, formatDateTime(entry.date)].filter(Boolean).join(" · "),
-      note: [entry.appetiteRating ? `Appetite ${entry.appetiteRating}/10` : "", entry.appetiteNote].filter(Boolean).join(" — ")
+      note: entry.note || entry.appetiteNote || ""
+    };
+  }
+  if (entry.type === "water") {
+    return {
+      title: "Water",
+      value: entry.ml >= 1000 ? `${round(entry.ml / 1000, 2)} L` : `${round(entry.ml, 0)} mL`,
+      sub: `${round(entry.amount, 1)} ${entry.unit || "ml"} · ${formatDateTime(entry.date)}`,
+      note: ""
     };
   }
   if (entry.type === "medication") {
@@ -818,7 +848,7 @@ function entryText(entry) {
       title: entry.name || category,
       value: `${entry.minutes} min${entry.calories != null ? ` · ${Math.round(entry.calories)} kcal` : ""}`,
       sub: `${category} · ${titleCase(entry.intensity || "moderate")} · ${formatDateTime(entry.date)}`,
-      note: [entry.note, entry.muscleRating ? `Body ${entry.muscleRating}/10` : ""].filter(Boolean).join(" — ")
+      note: entry.note || ""
     };
   }
   if (entry.type === "reading") {
@@ -843,6 +873,15 @@ function entryText(entry) {
       title: "Care & upkeep",
       value: `${actions.length} done`,
       sub: [formatDateOnly(entry.date), ...actions].join(" · "),
+      note: entry.note || ""
+    };
+  }
+  if (entry.type === "checkin") {
+    const average = mean([entry.appetite, entry.strength, entry.mobility, entry.breath]);
+    return {
+      title: "Daily check-in",
+      value: average == null ? "" : `${round(average, 1)}/10`,
+      sub: `Appetite ${entry.appetite}/10 · Strength ${entry.strength}/10 · Mobility ${entry.mobility}/10 · Breath ${entry.breath}/10 · ${formatDateOnly(entry.date)}`,
       note: entry.note || ""
     };
   }
@@ -897,7 +936,8 @@ function showView(name) {
     else tab.removeAttribute("aria-current");
   });
   if (name === "insights") requestAnimationFrame(renderInsights);
-  if (name === "add") selectLogGroup(currentLogGroup);
+  if (name === "add") renderLogHome();
+  if (name === "settings") renderQuickEntrySettings();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1165,11 +1205,13 @@ function renderInsights() {
   const dates = periodDates(days);
   const sleepEntries = entriesForPeriod("sleep", dates);
   const foodEntries = entriesForPeriod("food", dates);
+  const waterEntries = entriesForPeriod("water", dates);
   const medicationEntries = entriesForPeriod("medication", dates);
   const exerciseEntries = entriesForPeriod("exercise", dates);
   const bodyEntries = entriesForPeriod("body", dates);
   const eventEntries = entriesForPeriod("event", dates);
   const careEntries = entriesForPeriod("care", dates);
+  const checkinEntries = entriesForPeriod("checkin", dates);
   const weightEntries = bodyEntries.filter(hasBodyWeight);
   const measurementEntries = bodyEntries.filter((entry) => measurementCount(entry));
   const readingEntries = entriesForPeriod("reading", dates);
@@ -1186,6 +1228,8 @@ function renderInsights() {
   const avgSleep = mean(sleepEntries.map((entry) => entry.hours));
   const loggedFoodDays = new Set(foodEntries.map((entry) => todayKey(entry.date))).size;
   const foodCalories = foodEntries.reduce((sum, entry) => sum + (Number(entry.calories) || 0), 0);
+  const waterMl = waterEntries.reduce((sum, entry) => sum + (Number(entry.ml) || 0), 0);
+  const waterDays = new Set(waterEntries.map((entry) => todayKey(entry.date))).size;
   const activeMinutes = exerciseEntries.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
   const activeDays = new Set(exerciseEntries.map((entry) => todayKey(entry.date))).size;
   const readingMinutes = readingEntries.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
@@ -1209,10 +1253,10 @@ function renderInsights() {
 
   $("summaryMetrics").innerHTML = [
     { label: "Body", value: avgSleep == null ? (bodyEntries.length + eventEntries.length || "—") : `${round(avgSleep, 1)} h`, sub: `${sleepEntries.length} rest · ${bodyEntries.length} body · ${eventEntries.length} event` },
-    { label: "Nourish", value: loggedFoodDays ? `${Math.round(foodCalories / loggedFoodDays)} kcal` : (medicationEntries.length ? `${medicationEntries.length} doses` : "—"), sub: `${loggedFoodDays} food days · ${medicationEntries.length} dose logs` },
+    { label: "Nourish", value: waterMl ? `${round(waterMl / 1000, 1)} L` : (loggedFoodDays ? `${Math.round(foodCalories / loggedFoodDays)} kcal` : (medicationEntries.length ? `${medicationEntries.length} doses` : "—")), sub: `${waterDays} water days · ${loggedFoodDays} food days · ${medicationEntries.length} dose logs` },
     { label: "Move", value: activeMinutes ? `${activeMinutes} min` : "—", sub: `${activeDays} active ${activeDays === 1 ? "day" : "days"}` },
     { label: "Focus", value: focusMinutes ? formatDurationShort(focusMinutes) : "—", sub: `${readingDays} reading · ${writingDays} writing days` },
-    { label: "Care", value: careActions ? `${careActions} done` : "—", sub: `${careDays} care ${careDays === 1 ? "day" : "days"}` }
+    { label: "Care", value: checkinEntries.length ? `${round(mean(checkinEntries.flatMap((entry) => [entry.appetite, entry.strength, entry.mobility, entry.breath])), 1)}/10` : (careActions ? `${careActions} done` : "—"), sub: `${checkinEntries.length} daily check-ins · ${careDays} care days` }
   ].map((item) => `
     <article class="summary-item">
       <span>${escapeHtml(item.label)}</span>
@@ -1223,9 +1267,11 @@ function renderInsights() {
   const sleepHours = groupDaily(sleepEntries, dates, (entry) => entry.hours, "average");
   const sleepQuality = groupDaily(sleepEntries.filter((entry) => entry.quality), dates, (entry) => entry.quality, "average");
   const dailyFood = groupDaily(foodEntries, dates, (entry) => entry.calories);
+  const dailyWater = groupDaily(waterEntries, dates, (entry) => entry.ml);
   const dailyMedication = groupDaily(medicationEntries, dates, () => 1);
   const dailyExercise = groupDaily(exerciseEntries, dates, (entry) => entry.minutes);
-  const dailyWeight = groupDaily(weightEntries, dates, displayWeightValue, "average");
+  const dailyMorningWeight = groupDaily(weightEntries.filter((entry) => entry.weightSession === "morning"), dates, displayWeightValue, "average");
+  const dailyEveningWeight = groupDaily(weightEntries.filter((entry) => entry.weightSession === "evening"), dates, displayWeightValue, "average");
   const dailyWaist = groupDaily(measurementEntries, dates, (entry) => measurementValue(entry, "waist", preferredMeasurementUnit), "average");
   const dailyHips = groupDaily(measurementEntries, dates, (entry) => measurementValue(entry, "hips", preferredMeasurementUnit), "average");
   const dailyAbdomen = groupDaily(measurementEntries, dates, (entry) => measurementValue(entry, "abdomen", preferredMeasurementUnit), "average");
@@ -1233,15 +1279,18 @@ function renderInsights() {
   const dailyWriting = groupDaily(writingEntries, dates, (entry) => entry.minutes);
   const dailyEvents = groupDaily(eventEntries, dates, () => 1);
   const dailyCare = groupDaily(careEntries, dates, (entry) => careActionLabels(entry).length);
+  const dailyCheckin = groupDaily(checkinEntries, dates, (entry) => mean([entry.appetite, entry.strength, entry.mobility, entry.breath]), "average");
+  const dailyAppetite = groupDaily(checkinEntries, dates, (entry) => entry.appetite, "average");
 
   drawChart($("sleepChart"), sleepHours, {
     type: "line", color: "#2f6e4f", secondary: sleepQuality, secondaryColor: "#d09a45", maxHint: 12,
     labels: ["Hours", "Quality"]
   });
   drawChart($("foodChart"), dailyFood, { type: "bar", color: "#7ca98b" });
+  drawChart($("waterChart"), dailyWater, { type: "bar", color: "#6686a3" });
   drawChart($("medicationChart"), dailyMedication, { type: "bar", color: "#8f79a8" });
   drawChart($("exerciseChart"), dailyExercise, { type: "bar", color: "#4b8767" });
-  drawChart($("weightChart"), dailyWeight, { type: "line", color: "#7d6f9f", tightScale: true });
+  drawChart($("weightChart"), dailyMorningWeight, { type: "line", color: "#7d6f9f", secondary: dailyEveningWeight, secondaryColor: "#b57d49", labels: ["Morning", "Evening"], tightScale: true });
   drawChart($("bodyChart"), dailyWaist, {
     type: "line",
     color: "#2f6e4f",
@@ -1256,6 +1305,7 @@ function renderInsights() {
   drawChart($("writingChart"), dailyWriting, { type: "bar", color: "#a06f62" });
   drawChart($("eventChart"), dailyEvents, { type: "bar", color: "#a06f62" });
   drawChart($("careChart"), dailyCare, { type: "bar", color: "#d09a45" });
+  drawChart($("checkinChart"), dailyCheckin, { type: "line", color: "#2f6e4f", secondary: dailyAppetite, secondaryColor: "#d09a45", maxHint: 10, labels: ["Overall", "Appetite"] });
 
   $("sleepChartValue").textContent = avgSleep == null ? "No data" : `${round(avgSleep, 1)} h avg`;
   $("sleepChartSummary").textContent = avgSleep == null
@@ -1265,6 +1315,10 @@ function renderInsights() {
   $("foodChartSummary").textContent = foodEntries.length
     ? `${foodEntries.length} food ${foodEntries.length === 1 ? "entry" : "entries"} across ${loggedFoodDays} logged ${loggedFoodDays === 1 ? "day" : "days"}. Calories are estimates.`
     : "Log foods and portions to see estimated daily energy.";
+  $("waterChartValue").textContent = waterMl ? `${round(waterMl / 1000, 2)} L` : "No data";
+  $("waterChartSummary").textContent = waterEntries.length
+    ? `${round(waterMl / 1000, 2)} litres across ${waterDays} ${waterDays === 1 ? "day" : "days"}; average ${Math.round(waterMl / Math.max(1, waterDays))} mL per logged day.`
+    : "Log water in one tap or enter a custom amount to see hydration patterns.";
   const medicationNames = new Set(medicationEntries.map((entry) => entry.name?.trim().toLowerCase()).filter(Boolean));
   $("medicationChartValue").textContent = medicationEntries.length ? `${medicationTaken} taken` : "No data";
   $("medicationChartSummary").textContent = medicationEntries.length
@@ -1275,8 +1329,10 @@ function renderInsights() {
     ? `${exerciseEntries.length} ${exerciseEntries.length === 1 ? "session" : "sessions"}; estimated energy ${Math.round(exerciseEntries.reduce((sum, entry) => sum + (Number(entry.calories) || 0), 0))} kcal.`
     : "Log movement to see your active-time rhythm.";
   $("weightChartValue").textContent = sortedWeights.length ? `${round(displayWeightValue(sortedWeights.at(-1)), 1)} ${preferredWeightLabel}` : "No data";
+  const morningCount = weightEntries.filter((entry) => entry.weightSession === "morning").length;
+  const eveningCount = weightEntries.filter((entry) => entry.weightSession === "evening").length;
   $("weightChartSummary").textContent = sortedWeights.length > 1
-    ? `${sortedWeights.length} weight entries; ${Math.abs(round(weightChange, 1))} ${preferredWeightLabel} ${weightChange > 0 ? "increase" : weightChange < 0 ? "decrease" : "change"} in this period.`
+    ? `${morningCount} morning · ${eveningCount} evening; ${Math.abs(round(weightChange, 1))} ${preferredWeightLabel} ${weightChange > 0 ? "increase" : weightChange < 0 ? "decrease" : "change"} across the period.`
     : "Two or more weight entries are needed to show a trend.";
 
   const latestPeriodMeasurement = [...measurementEntries].sort((a, b) => (parseDate(b.date) || 0) - (parseDate(a.date) || 0))[0];
@@ -1329,7 +1385,13 @@ function renderInsights() {
     ? `${careActions} completed actions across ${careDays} ${careDays === 1 ? "day" : "days"}${topCare ? `; most frequent: ${topCare[0]} (${topCare[1]})` : ""}.`
     : "Log a care check-in to see which small routines are supporting you.";
 
-  renderPatternInsights({ sleepEntries, foodEntries, medicationEntries, exerciseEntries, bodyEntries, eventEntries, careEntries, readingEntries, writingEntries });
+  const checkinAverage = mean(checkinEntries.flatMap((entry) => [entry.appetite, entry.strength, entry.mobility, entry.breath]));
+  $("checkinChartValue").textContent = checkinAverage == null ? "No data" : `${round(checkinAverage, 1)}/10`;
+  $("checkinChartSummary").textContent = checkinEntries.length
+    ? `${checkinEntries.length} daily ${checkinEntries.length === 1 ? "check-in" : "check-ins"}; appetite ${formatAverage(checkinEntries.map((entry) => entry.appetite), "/10")}, strength ${formatAverage(checkinEntries.map((entry) => entry.strength), "/10")}, mobility ${formatAverage(checkinEntries.map((entry) => entry.mobility), "/10")}, breath ${formatAverage(checkinEntries.map((entry) => entry.breath), "/10")}.`
+    : "Daily feelings are asked once here instead of repeated inside food and exercise entries.";
+
+  renderPatternInsights({ sleepEntries, foodEntries, waterEntries, medicationEntries, exerciseEntries, bodyEntries, eventEntries, careEntries, checkinEntries, readingEntries, writingEntries });
 }
 
 function formatAverage(values, suffix = "") {
@@ -1337,7 +1399,7 @@ function formatAverage(values, suffix = "") {
   return average == null ? "not rated" : `${round(average, 1)}${suffix}`;
 }
 
-function renderPatternInsights({ sleepEntries, foodEntries, medicationEntries, exerciseEntries, bodyEntries, eventEntries, careEntries, readingEntries, writingEntries }) {
+function renderPatternInsights({ sleepEntries, foodEntries, waterEntries, medicationEntries, exerciseEntries, bodyEntries, eventEntries, careEntries, checkinEntries, readingEntries, writingEntries }) {
   const patterns = [];
 
   const bodyParts = [];
@@ -1396,9 +1458,9 @@ function renderPatternInsights({ sleepEntries, foodEntries, medicationEntries, e
       return result;
     }, {});
     const topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    const appetite = mean(foodEntries.map((entry) => entry.appetiteRating));
-    nourishParts.push(`${foodCategoryLabels[topCategory[0]] || "Mixed foods"} was the most logged food group${appetite == null ? "" : `; appetite regulation averaged ${round(appetite, 1)}/10`}`);
+    nourishParts.push(`${foodCategoryLabels[topCategory[0]] || "Mixed foods"} was the most logged food group`);
   }
+  if (waterEntries.length) nourishParts.push(`${round(waterEntries.reduce((sum, entry) => sum + (Number(entry.ml) || 0), 0) / 1000, 2)} litres of water were logged`);
   if (medicationEntries.length) {
     const taken = medicationEntries.filter((entry) => entry.status === "taken" || entry.status === "late").length;
     const missed = medicationEntries.length - taken;
@@ -1416,11 +1478,11 @@ function renderPatternInsights({ sleepEntries, foodEntries, medicationEntries, e
       return result;
     }, {});
     const topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    const bodyScores = exerciseEntries.flatMap((entry) => [entry.muscleRating, entry.mobilityRating, entry.breathRating]).filter(Boolean);
+    const bodyScores = checkinEntries.flatMap((entry) => [entry.strength, entry.mobility, entry.breath]).filter(Boolean);
     patterns.push({
       symbol: "↗",
       title: "Move",
-      text: `${exerciseCategoryLabels[topCategory[0]] || "Movement"} appeared most often across ${exerciseEntries.length} ${exerciseEntries.length === 1 ? "session" : "sessions"}. Combined body-feel averaged ${formatAverage(bodyScores, "/10")}.`
+      text: `${exerciseCategoryLabels[topCategory[0]] || "Movement"} appeared most often across ${exerciseEntries.length} ${exerciseEntries.length === 1 ? "session" : "sessions"}.${bodyScores.length ? ` Daily movement-related feelings averaged ${formatAverage(bodyScores, "/10")}.` : ""}`
     });
   } else {
     patterns.push({ symbol: "↗", title: "Move", text: "Two movement sessions will start showing your preferred exercise and body response." });
@@ -1587,6 +1649,367 @@ function drawLineSeries(context, points, xFor, yFor, color, dashed) {
   context.restore();
 }
 
+const FLOW_LABELS = {
+  water: "Water", food: "Food", medication: "Medication & supplements", weight: "Weight",
+  measurements: "Body measurements", sleep: "Sleep", exercise: "Exercise", event: "Health event",
+  reading: "Reading", writing: "Writing", care: "Care & upkeep", checkin: "Daily check-in"
+};
+
+const choice = (value, label) => ({ value, label });
+const nowValue = () => toLocalInputValue(new Date());
+const todayValue = () => todayKey();
+const defaultWeightSession = () => new Date().getHours() < 14 ? "morning" : "evening";
+
+function timedDefaults(minutes) {
+  const end = new Date();
+  end.setSeconds(0, 0);
+  return { start: toLocalInputValue(new Date(end.getTime() - minutes * 60000)), end: toLocalInputValue(end) };
+}
+
+function sleepDefaults() {
+  const end = new Date();
+  end.setSeconds(0, 0);
+  return { start: toLocalInputValue(new Date(end.getTime() - 8 * 3600000)), end: toLocalInputValue(end) };
+}
+
+function makeLogFlows() {
+  const readingTime = timedDefaults(30);
+  const writingTime = timedDefaults(30);
+  const sleepTime = sleepDefaults();
+  return {
+    water: [
+      { key: "preset", kind: "choice", label: "How much water?", hint: "Tap an amount and the next question appears.", options: [choice("250", "250 mL"), choice("350", "350 mL"), choice("500", "500 mL"), choice("750", "750 mL"), choice("custom", "Custom amount")] },
+      { key: "amount", kind: "number", label: "Enter the amount", hint: "Use a number greater than zero.", default: 250, showIf: (a) => a.preset === "custom" },
+      { key: "unit", kind: "choice", label: "Which unit?", default: "ml", showIf: (a) => a.preset === "custom", options: [choice("ml", "mL"), choice("cup", "Cups"), choice("oz", "fl oz")] },
+      { key: "date", kind: "datetime", label: "When did you drink it?", default: nowValue }
+    ],
+    weight: [
+      { key: "weight", kind: "number", label: "What is your weight?", hint: "Morning and evening entries stay separate.", step: "0.1" },
+      { key: "unit", kind: "choice", label: "Which unit?", default: "kg", options: [choice("kg", "kg"), choice("jin", "斤")] },
+      { key: "session", kind: "choice", label: "Morning or evening?", default: defaultWeightSession, options: [choice("morning", "Morning"), choice("evening", "Evening")] },
+      { key: "date", kind: "datetime", label: "When was it measured?", default: nowValue },
+      { key: "note", kind: "note", label: "Anything to remember?", hint: "Optional", optional: true }
+    ],
+    measurements: [
+      { key: "unit", kind: "choice", label: "Which measurement unit?", default: "cm", options: [choice("cm", "cm"), choice("in", "inches")] },
+      { key: "measurements", kind: "measurements", label: "Enter any measurements you took", hint: "You only need the ones you measured." },
+      { key: "date", kind: "date", label: "Which day?", default: todayValue },
+      { key: "note", kind: "note", label: "Anything to remember?", hint: "Optional", optional: true }
+    ],
+    food: [
+      { key: "meal", kind: "choice", label: "Which meal?", options: Object.entries(mealLabels).map(([value, label]) => choice(value, label)) },
+      { key: "category", kind: "choice", label: "What kind of food was it?", options: Object.entries(foodCategoryLabels).map(([value, label]) => choice(value, label)) },
+      { key: "name", kind: "text", label: "What did you have?", placeholder: "e.g. cooked brown rice" },
+      { key: "amount", kind: "number", label: "How much?", step: "0.1" },
+      { key: "unit", kind: "choice", label: "Which unit?", default: "serving", options: ["serving", "g", "ml", "oz", "cup", "tbsp", "tsp", "piece"].map((value) => choice(value, value)) },
+      { key: "date", kind: "datetime", label: "When did you have it?", default: nowValue },
+      { key: "note", kind: "note", label: "Any note about this food?", hint: "Optional", optional: true }
+    ],
+    medication: [
+      { key: "kind", kind: "choice", label: "What type is it?", options: Object.entries(medicationKindLabels).map(([value, label]) => choice(value, label)) },
+      { key: "name", kind: "text", label: "What is its name?", placeholder: "e.g. Vitamin D" },
+      { key: "doseAmount", kind: "number", label: "How much?", hint: "Optional for a missed dose", optional: true, step: "0.1" },
+      { key: "doseUnit", kind: "choice", label: "Which dose unit?", default: "tablet", options: ["tablet", "capsule", "mg", "mcg", "g", "ml", "drop", "scoop", "dose"].map((value) => choice(value, value === "ml" ? "mL" : value)) },
+      { key: "status", kind: "choice", label: "What happened?", default: "taken", options: Object.entries(medicationStatusLabels).map(([value, label]) => choice(value, label)) },
+      { key: "date", kind: "datetime", label: "When?", default: nowValue },
+      { key: "note", kind: "note", label: "Anything to remember?", hint: "Optional", optional: true }
+    ],
+    sleep: [
+      { key: "start", kind: "datetime", label: "When did you fall asleep?", default: sleepTime.start },
+      { key: "end", kind: "datetime", label: "When did you wake up?", default: sleepTime.end },
+      { key: "trouble", kind: "choice", label: "Was there trouble sleeping?", default: "no", options: [choice("no", "No"), choice("a-little", "A little"), choice("yes", "Yes")] },
+      { key: "quality", kind: "scale", label: "How was the sleep quality?", default: 7 },
+      { key: "note", kind: "note", label: "What affected your sleep?", hint: "Optional", optional: true }
+    ],
+    exercise: [
+      { key: "category", kind: "choice", label: "What kind of movement?", options: Object.entries(exerciseCategoryLabels).map(([value, label]) => choice(value, label)) },
+      { key: "intensity", kind: "choice", label: "How intense was it?", default: "moderate", options: [choice("light", "Light"), choice("moderate", "Moderate"), choice("vigorous", "Vigorous")] },
+      { key: "name", kind: "text", label: "What activity?", hint: "Optional—the category name can be used.", placeholder: "e.g. hiking or swimming", optional: true },
+      { key: "minutes", kind: "number", label: "How many minutes?", default: 30, step: "1" },
+      { key: "date", kind: "datetime", label: "When did you exercise?", default: nowValue },
+      { key: "note", kind: "note", label: "Anything about this session?", hint: "Optional", optional: true }
+    ],
+    event: [
+      { key: "kind", kind: "choice", label: "What happened?", options: Object.entries(eventKindLabels).map(([value, label]) => choice(value, label)) },
+      { key: "name", kind: "text", label: "What did you notice?", showIf: (a) => a.kind === "symptom" || a.kind === "other" },
+      { key: "bowelForm", kind: "choice", label: "What was the stool form?", optional: true, showIf: (a) => a.kind === "bowel", options: [1,2,3,4,5,6,7].map((value) => choice(String(value), `Type ${value}`)) },
+      { key: "ease", kind: "choice", label: "How did it feel?", optional: true, showIf: (a) => a.kind === "bowel", options: [choice("easy", "Easy"), choice("neutral", "Neutral"), choice("difficult", "Difficult")] },
+      { key: "severity", kind: "scale", label: "How intense was it?", default: 5, showIf: (a) => ["diarrhea", "vomiting", "symptom", "other"].includes(a.kind) },
+      { key: "date", kind: "datetime", label: "When did it happen?", default: nowValue },
+      { key: "note", kind: "note", label: "Any context or trigger?", hint: "Optional", optional: true }
+    ],
+    reading: [
+      { key: "start", kind: "datetime", label: "When did you start reading?", default: readingTime.start },
+      { key: "end", kind: "datetime", label: "When did you finish?", default: readingTime.end },
+      { key: "title", kind: "text", label: "What book?", placeholder: "Book title" },
+      { key: "category", kind: "choice", label: "What kind of reading?", options: Object.entries(readingCategoryLabels).map(([value, label]) => choice(value, label)) },
+      { key: "note", kind: "note", label: "What do you want to remember?", hint: "Optional", optional: true }
+    ],
+    writing: [
+      { key: "start", kind: "datetime", label: "When did you start writing?", default: writingTime.start },
+      { key: "end", kind: "datetime", label: "When did you finish?", default: writingTime.end },
+      { key: "topic", kind: "text", label: "What did you work on?", hint: "Optional", optional: true },
+      { key: "category", kind: "choice", label: "What kind of writing?", options: Object.entries(writingCategoryLabels).map(([value, label]) => choice(value, label)) },
+      { key: "note", kind: "note", label: "Anything to remember?", hint: "Optional", optional: true }
+    ],
+    care: [
+      { key: "items", kind: "multi", label: "What did you do?", options: Object.entries(careItemLabels).map(([value, label]) => choice(value, label)) },
+      { key: "custom", kind: "text", label: "Anything else?", hint: "Optional", placeholder: "e.g. changed sheets", optional: true },
+      { key: "date", kind: "date", label: "Which day?", default: todayValue },
+      { key: "note", kind: "note", label: "Anything to remember?", hint: "Optional", optional: true }
+    ],
+    checkin: [
+      { key: "appetite", kind: "scale", label: "How well regulated did your appetite feel today?", default: 7 },
+      { key: "strength", kind: "scale", label: "How did your muscles and stability feel?", default: 7 },
+      { key: "mobility", kind: "scale", label: "How did mobility and flexibility feel?", default: 7 },
+      { key: "breath", kind: "scale", label: "How did breathing and stamina feel?", default: 7 },
+      { key: "note", kind: "note", label: "Anything that shaped today?", hint: "Optional", optional: true },
+      { key: "date", kind: "date", label: "Which day is this check-in for?", default: todayValue }
+    ]
+  };
+}
+
+function visibleFlowSteps() {
+  const steps = makeLogFlows()[activeFlow] || [];
+  return steps.filter((step) => !step.showIf || step.showIf(flowAnswers));
+}
+
+function startFlow(type) {
+  if (!makeLogFlows()[type]) return;
+  activeFlow = type;
+  activeFlowStep = 0;
+  flowAnswers = {};
+  makeLogFlows()[type].forEach((step) => {
+    const value = typeof step.default === "function" ? step.default() : step.default;
+    if (value !== undefined) flowAnswers[step.key] = value;
+  });
+  $("logHome").classList.add("hidden");
+  $("flowShell").classList.remove("hidden");
+  renderFlowQuestion();
+}
+
+function renderLogHome() {
+  activeFlow = null;
+  activeFlowStep = 0;
+  flowAnswers = {};
+  $("flowShell").classList.add("hidden");
+  $("logHome").classList.remove("hidden");
+  renderQuickEntries();
+  const checkinButton = document.querySelector('[data-start-flow="checkin"]');
+  const checkedIn = entriesByType("checkin").some((entry) => todayKey(entry.date) === todayKey());
+  if (checkinButton) {
+    checkinButton.querySelector("small").textContent = checkedIn ? "Done · tap to update" : "Once today";
+    checkinButton.classList.toggle("is-complete", checkedIn);
+  }
+}
+
+function flowFieldValue(step) {
+  const value = flowAnswers[step.key];
+  return value == null ? "" : String(value);
+}
+
+function renderFlowQuestion() {
+  const steps = visibleFlowSteps();
+  $("flowBack").textContent = activeFlowStep === 0 ? "← All records" : "← Back";
+  $("flowProgress").textContent = activeFlowStep >= steps.length ? "Ready" : `${activeFlowStep + 1} of ${steps.length}`;
+  if (activeFlowStep >= steps.length) {
+    renderFlowReview();
+    return;
+  }
+  const step = steps[activeFlowStep];
+  const hint = step.hint ? `<p>${escapeHtml(step.hint)}</p>` : "";
+  let control = "";
+  if (step.kind === "choice" || step.kind === "scale") {
+    const options = step.kind === "scale"
+      ? Array.from({ length: 10 }, (_, index) => choice(String(index + 1), String(index + 1)))
+      : step.options;
+    const selected = flowFieldValue(step);
+    control = `<div class="${step.kind === "scale" ? "flow-scale" : "flow-options two-up"}">${options.map((option) => `
+      <button type="button" class="flow-option" data-flow-choice="${escapeHtml(option.value)}" aria-pressed="${String(selected === String(option.value))}">${escapeHtml(option.label)}</button>`).join("")}</div>
+      ${step.optional ? `<button type="button" class="flow-skip" data-flow-skip>Skip</button>` : ""}`;
+  } else if (step.kind === "multi") {
+    const selected = Array.isArray(flowAnswers[step.key]) ? flowAnswers[step.key] : [];
+    control = `<div class="flow-multi">${step.options.map((option) => `<label><input type="checkbox" value="${escapeHtml(option.value)}" ${selected.includes(option.value) ? "checked" : ""}>${escapeHtml(option.label)}</label>`).join("")}</div>${flowContinueButton(step)}`;
+  } else if (step.kind === "measurements") {
+    const values = flowAnswers.measurements || {};
+    control = `<div class="flow-measurements">${BODY_MEASUREMENTS.map(({ key, label }) => `<label>${escapeHtml(label)}<input type="number" inputmode="decimal" min="0" step="0.1" data-measurement-key="${key}" value="${escapeHtml(values[key] || "")}" /></label>`).join("")}</div>${flowContinueButton(step)}`;
+  } else {
+    const inputType = step.kind === "datetime" ? "datetime-local" : step.kind === "date" ? "date" : step.kind === "number" ? "number" : "text";
+    const input = step.kind === "note"
+      ? `<textarea id="flowInput" aria-label="${escapeHtml(step.label)}" placeholder="Optional">${escapeHtml(flowFieldValue(step))}</textarea>`
+      : `<input id="flowInput" aria-label="${escapeHtml(step.label)}" type="${inputType}" ${step.kind === "number" ? `inputmode="decimal" min="0" step="${step.step || "0.1"}"` : ""} value="${escapeHtml(flowFieldValue(step))}" placeholder="${escapeHtml(step.placeholder || "")}" />`;
+    control = `<div class="flow-control">${input}</div>${flowContinueButton(step)}`;
+  }
+  $("flowQuestion").innerHTML = `<p class="eyebrow">${escapeHtml(FLOW_LABELS[activeFlow])}</p><h3>${escapeHtml(step.label)}</h3>${hint}${control}`;
+  requestAnimationFrame(() => ($("flowInput") || $("flowQuestion").querySelector(".flow-option, input, textarea"))?.focus());
+}
+
+function flowContinueButton(step) {
+  return `<div class="flow-actions">${step.optional ? `<button type="button" class="flow-skip" data-flow-skip>Skip</button>` : ""}<button type="button" class="primary" data-flow-continue>Continue</button></div>`;
+}
+
+function storeCurrentFlowAnswer() {
+  const step = visibleFlowSteps()[activeFlowStep];
+  if (!step) return true;
+  let value;
+  if (step.kind === "multi") {
+    value = [...$("flowQuestion").querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
+  } else if (step.kind === "measurements") {
+    value = {};
+    $("flowQuestion").querySelectorAll("[data-measurement-key]").forEach((input) => {
+      if (input.value.trim()) value[input.dataset.measurementKey] = Number(input.value);
+    });
+  } else {
+    value = $("flowInput")?.value?.trim() ?? "";
+    if (step.kind === "number" && value !== "") value = Number(value);
+  }
+  if (!step.optional) {
+    if (step.kind === "number" && (!Number.isFinite(value) || value <= 0)) return toast("Enter a number greater than zero"), false;
+    if (step.kind === "measurements" && !Object.keys(value).length) return toast("Enter at least one measurement"), false;
+    if (step.kind === "multi" && !value.length) return toast("Choose at least one option"), false;
+    if ((step.kind === "text" || step.kind === "datetime" || step.kind === "date") && !value) return toast("Answer this question to continue"), false;
+  }
+  flowAnswers[step.key] = value;
+  return true;
+}
+
+function moveFlowForward() {
+  activeFlowStep += 1;
+  renderFlowQuestion();
+}
+
+function renderFlowReview() {
+  const quickAllowed = !["checkin", "measurements", "weight"].includes(activeFlow);
+  $("flowQuestion").innerHTML = `
+    <p class="eyebrow">READY TO SAVE</p>
+    <h3>${escapeHtml(FLOW_LABELS[activeFlow])}</h3>
+    <div class="flow-review">${escapeHtml(flowSummary())}</div>
+    <div class="flow-actions">${quickAllowed ? `<button type="button" class="secondary" data-flow-save-quick>Save & add to Quick</button>` : ""}<button type="button" class="primary" data-flow-save>Save entry</button></div>`;
+}
+
+function flowSummary() {
+  const a = flowAnswers;
+  if (activeFlow === "water") return `${waterAmountAndUnit(a).amount} ${waterAmountAndUnit(a).unit} water`;
+  if (activeFlow === "weight") return `${a.weight} ${weightUnitLabel(a.unit)} · ${titleCase(a.session)}`;
+  if (activeFlow === "measurements") return `${Object.keys(a.measurements || {}).length} measurements · ${a.unit}`;
+  if (activeFlow === "food") return `${a.name} · ${a.amount} ${a.unit}`;
+  if (activeFlow === "medication") return `${a.name}${a.doseAmount ? ` · ${a.doseAmount} ${a.doseUnit}` : ""} · ${medicationStatusLabels[a.status]}`;
+  if (activeFlow === "exercise") return `${a.name || exerciseCategoryLabels[a.category]} · ${a.minutes} min`;
+  if (activeFlow === "sleep") return `${round((parseDate(a.end) - parseDate(a.start)) / 3600000, 1)} hours · quality ${a.quality}/10`;
+  if (activeFlow === "reading") return `${a.title} · ${formatDurationShort((parseDate(a.end) - parseDate(a.start)) / 60000)}`;
+  if (activeFlow === "writing") return `${a.topic || writingCategoryLabels[a.category]} · ${formatDurationShort((parseDate(a.end) - parseDate(a.start)) / 60000)}`;
+  if (activeFlow === "care") return `${(a.items || []).length + (a.custom ? 1 : 0)} care actions`;
+  if (activeFlow === "checkin") return `Appetite ${a.appetite}/10 · Strength ${a.strength}/10 · Mobility ${a.mobility}/10 · Breath ${a.breath}/10`;
+  return eventKindLabels[a.kind] || FLOW_LABELS[activeFlow];
+}
+
+function waterAmountAndUnit(a) {
+  if (a.preset && a.preset !== "custom") return { amount: Number(a.preset), unit: "ml" };
+  return { amount: Number(a.amount), unit: a.unit || "ml" };
+}
+
+function waterToMl(amount, unit) {
+  if (unit === "cup") return amount * 240;
+  if (unit === "oz") return amount * 29.5735;
+  return amount;
+}
+
+async function saveActiveFlow(makeQuick = false) {
+  const a = flowAnswers;
+  let entry;
+  let date = parseDate(a.date)?.toISOString() || new Date().toISOString();
+  if (activeFlow === "water") {
+    const water = waterAmountAndUnit(a);
+    entry = addEntry("water", { amount: water.amount, unit: water.unit, ml: round(waterToMl(water.amount, water.unit), 1) }, date);
+  } else if (activeFlow === "weight") {
+    entry = addEntry("body", { weight: Number(a.weight), weightUnit: a.unit, weightSession: a.session, measurements: {}, measurementUnit: "cm", note: a.note || "" }, date);
+  } else if (activeFlow === "measurements") {
+    entry = addEntry("body", { weight: null, weightUnit: "kg", weightSession: null, measurements: a.measurements, measurementUnit: a.unit, note: a.note || "" }, new Date(`${a.date}T12:00:00`).toISOString());
+  } else if (activeFlow === "food") {
+    $("foodName").value = a.name; $("foodAmount").value = a.amount; $("foodUnit").value = a.unit; $("foodCategory").value = a.category;
+    const estimate = estimateFoodCalories();
+    entry = addEntry("food", { name: a.name, meal: a.meal, category: a.category, amount: Number(a.amount), unit: a.unit, calories: estimate?.calories ?? 0, calorieSource: estimate?.source || "food-group average", note: a.note || "" }, date);
+  } else if (activeFlow === "medication") {
+    entry = addEntry("medication", { kind: a.kind, name: a.name, doseAmount: a.doseAmount ? Number(a.doseAmount) : null, doseUnit: a.doseUnit, status: a.status, note: a.note || "" }, date);
+  } else if (activeFlow === "sleep") {
+    const start = parseDate(a.start); const end = parseDate(a.end); const hours = (end - start) / 3600000;
+    if (!start || !end || hours <= 0 || hours > 24) return toast("Check the sleep and wake times");
+    entry = addEntry("sleep", { start: start.toISOString(), end: end.toISOString(), hours: round(hours, 2), trouble: a.trouble, quality: Number(a.quality), note: a.note || "" }, end.toISOString());
+  } else if (activeFlow === "exercise") {
+    $("exerciseCategory").value = a.category; $("exerciseIntensity").value = a.intensity; $("exerciseName").value = a.name || ""; $("exerciseMinutes").value = a.minutes;
+    const estimate = estimateExerciseCalories();
+    entry = addEntry("exercise", { name: a.name || exerciseCategoryLabels[a.category], category: a.category, intensity: a.intensity, minutes: Number(a.minutes), calories: estimate?.calories ?? 0, met: estimate?.met || null, estimateWeightKg: estimate?.weight.kg || null, note: a.note || "" }, date);
+  } else if (activeFlow === "event") {
+    entry = addEntry("event", { kind: a.kind, name: a.name || "", severity: a.severity ? Number(a.severity) : null, bowelForm: a.bowelForm ? Number(a.bowelForm) : null, ease: a.ease || null, note: a.note || "" }, date);
+  } else if (activeFlow === "reading" || activeFlow === "writing") {
+    const start = parseDate(a.start); const end = parseDate(a.end); const minutes = Math.round((end - start) / 60000);
+    if (!start || !end || minutes <= 0 || minutes > 1440) return toast("Check the start and finish times");
+    const payload = activeFlow === "reading"
+      ? { start: start.toISOString(), end: end.toISOString(), minutes, title: a.title, category: a.category, note: a.note || "" }
+      : { start: start.toISOString(), end: end.toISOString(), minutes, topic: a.topic || "", category: a.category, note: a.note || "" };
+    entry = addEntry(activeFlow, payload, end.toISOString());
+  } else if (activeFlow === "care") {
+    entry = addEntry("care", { items: a.items || [], customItems: a.custom ? [a.custom] : [], note: a.note || "" }, new Date(`${a.date}T12:00:00`).toISOString());
+  } else if (activeFlow === "checkin") {
+    const existing = vault.entries.find((item) => item.type === "checkin" && todayKey(item.date) === a.date);
+    const payload = { appetite: Number(a.appetite), strength: Number(a.strength), mobility: Number(a.mobility), breath: Number(a.breath), note: a.note || "" };
+    if (existing) Object.assign(existing, payload, { date: new Date(`${a.date}T20:00:00`).toISOString() });
+    else entry = addEntry("checkin", payload, new Date(`${a.date}T20:00:00`).toISOString());
+    entry = entry || existing;
+  }
+  if (!entry) return;
+  if (makeQuick && !["checkin", "measurements", "weight"].includes(entry.type)) addQuickTemplate(entry);
+  await saveAndRender(makeQuick ? "Saved and added to Quick" : `${FLOW_LABELS[activeFlow]} saved`);
+  renderLogHome();
+}
+
+function quickLabelForEntry(entry) {
+  if (entry.type === "water") return `${round(entry.ml, 0)} mL water`;
+  if (entry.type === "medication") return entry.name;
+  if (entry.type === "food") return entry.name;
+  if (entry.type === "exercise") return entry.name;
+  return entryText(entry).title;
+}
+
+function addQuickTemplate(entry) {
+  const { id, date, createdAt, schemaVersion, type, ...data } = entry;
+  const signature = `${entry.type}:${quickLabelForEntry(entry).toLowerCase()}`;
+  if (vault.quickEntries.some((item) => item.signature === signature)) return;
+  vault.quickEntries.push({ id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-quick`, type, label: quickLabelForEntry(entry), signature, data });
+}
+
+function builtInQuickEntries() {
+  return [
+    { id: "builtin-water", type: "water", label: "250 mL water", icon: "💧", data: { amount: 250, unit: "ml", ml: 250 } },
+    { id: "builtin-vitamin-d", type: "medication", label: "Vitamin D", icon: "✦", data: { kind: "supplement", name: "Vitamin D", doseAmount: 1, doseUnit: "tablet", status: "taken", note: "" } }
+  ];
+}
+
+function renderQuickEntries() {
+  const entries = [...builtInQuickEntries(), ...(vault.quickEntries || [])];
+  $("quickEntryList").innerHTML = entries.map((item) => `<button type="button" class="quick-entry" data-quick-id="${escapeHtml(item.id)}"><span>${escapeHtml(item.icon || icons[item.type] || "＋")}</span><span><strong>${escapeHtml(item.label)}</strong><small>Log now</small></span></button>`).join("");
+}
+
+function renderQuickEntrySettings() {
+  const custom = vault.quickEntries || [];
+  $("quickEntrySettings").innerHTML = custom.length
+    ? custom.map((item) => `<div class="quick-setting"><span>${escapeHtml(item.label)}</span><button type="button" data-delete-quick="${escapeHtml(item.id)}">Remove</button></div>`).join("")
+    : `<p class="muted small">No custom quick entries yet.</p>`;
+}
+
+async function applyQuickEntry(id) {
+  const template = [...builtInQuickEntries(), ...(vault.quickEntries || [])].find((item) => item.id === id);
+  if (!template) return;
+  const now = new Date();
+  const data = typeof structuredClone === "function" ? structuredClone(template.data) : JSON.parse(JSON.stringify(template.data));
+  if (data.start && data.end) {
+    const duration = Math.max(60000, parseDate(data.end) - parseDate(data.start));
+    data.end = now.toISOString(); data.start = new Date(now - duration).toISOString();
+  }
+  addEntry(template.type, data, now.toISOString());
+  await saveAndRender(`${template.label} logged`);
+}
+
 // Authentication
 $("createVaultBtn").addEventListener("click", async () => {
   const pin = $("newPin").value.trim();
@@ -1659,6 +2082,48 @@ document.addEventListener("click", (event) => {
   if (remove) {
     vault.entries = vault.entries.filter((entry) => entry.id !== remove.dataset.delete);
     encryptVault().then(renderAll).catch(() => toast("Could not delete entry"));
+  }
+
+  const flowStart = event.target.closest("[data-start-flow]");
+  if (flowStart) startFlow(flowStart.dataset.startFlow);
+
+  const flowChoice = event.target.closest("[data-flow-choice]");
+  if (flowChoice && activeFlow) {
+    const step = visibleFlowSteps()[activeFlowStep];
+    flowAnswers[step.key] = step.kind === "scale" ? Number(flowChoice.dataset.flowChoice) : flowChoice.dataset.flowChoice;
+    moveFlowForward();
+  }
+
+  if (event.target.closest("[data-flow-continue]") && activeFlow && storeCurrentFlowAnswer()) moveFlowForward();
+  if (event.target.closest("[data-flow-skip]") && activeFlow) {
+    const step = visibleFlowSteps()[activeFlowStep];
+    flowAnswers[step.key] = step.kind === "multi" ? [] : "";
+    moveFlowForward();
+  }
+  if (event.target.closest("[data-flow-save]") && activeFlow) saveActiveFlow(false);
+  if (event.target.closest("[data-flow-save-quick]") && activeFlow) saveActiveFlow(true);
+
+  const quick = event.target.closest("[data-quick-id]");
+  if (quick) applyQuickEntry(quick.dataset.quickId);
+
+  const deleteQuick = event.target.closest("[data-delete-quick]");
+  if (deleteQuick) {
+    vault.quickEntries = (vault.quickEntries || []).filter((item) => item.id !== deleteQuick.dataset.deleteQuick);
+    encryptVault().then(() => { renderQuickEntrySettings(); renderQuickEntries(); toast("Quick entry removed"); });
+  }
+});
+
+$("flowBack").addEventListener("click", () => {
+  if (!activeFlow || activeFlowStep === 0) return renderLogHome();
+  const steps = visibleFlowSteps();
+  activeFlowStep = Math.min(activeFlowStep - 1, steps.length - 1);
+  renderFlowQuestion();
+});
+$("flowCancel").addEventListener("click", renderLogHome);
+$("flowQuestion").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey && event.target.matches("input") && $("flowQuestion").querySelector("[data-flow-continue]")) {
+    event.preventDefault();
+    if (storeCurrentFlowAnswer()) moveFlowForward();
   }
 });
 
@@ -1970,7 +2435,7 @@ $("eraseBtn").addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(SALT_KEY);
   cryptoKey = null;
-  vault = { version: APP_VERSION, entries: [] };
+  vault = { version: APP_VERSION, entries: [], quickEntries: [] };
   lockApp();
 });
 

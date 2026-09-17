@@ -18,8 +18,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Verdant" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="manifest" href="manifest.webmanifest?v=5.1" />
-  <link rel="stylesheet" href="styles.css?v=5.1" />
+  <link rel="manifest" href="manifest.webmanifest?v=6.1" />
+  <link rel="stylesheet" href="styles.css?v=6.1" />
   <title>Verdant Health Tracker</title>
 </head>
 <body>
@@ -113,9 +113,48 @@
         <section id="addView" class="view hidden">
           <div class="section-title">
             <p class="eyebrow">QUICK LOG</p>
-            <h2>Add an entry</h2>
-            <p class="muted">Choose one area, then the detail you want to record.</p>
+            <h2>What happened?</h2>
+            <p class="muted">Use one tap for a routine, or answer one clear question at a time.</p>
           </div>
+
+          <div id="logHome">
+            <section class="quick-panel" aria-labelledby="quickTitle">
+              <div class="section-head">
+                <div><p class="eyebrow">ONE TAP</p><h3 id="quickTitle">Quick entries</h3></div>
+                <span class="quick-hint">Saved now</span>
+              </div>
+              <div id="quickEntryList" class="quick-grid"></div>
+            </section>
+
+            <section class="entry-type-panel" aria-labelledby="entryTypeTitle">
+              <div class="section-head">
+                <div><p class="eyebrow">NEW RECORD</p><h3 id="entryTypeTitle">Choose one thing</h3></div>
+              </div>
+              <div class="entry-type-grid">
+                <button class="entry-type" data-start-flow="water"><span>💧</span><strong>Water</strong><small>Amount</small></button>
+                <button class="entry-type" data-start-flow="food"><span>⌁</span><strong>Food</strong><small>Meal or snack</small></button>
+                <button class="entry-type" data-start-flow="medication"><span>✦</span><strong>Medication</strong><small>& supplements</small></button>
+                <button class="entry-type" data-start-flow="weight"><span>◍</span><strong>Weight</strong><small>Morning or evening</small></button>
+                <button class="entry-type" data-start-flow="measurements"><span>◎</span><strong>Measurements</strong><small>Monthly</small></button>
+                <button class="entry-type" data-start-flow="sleep"><span>☾</span><strong>Sleep</strong><small>Night</small></button>
+                <button class="entry-type" data-start-flow="exercise"><span>↗</span><strong>Exercise</strong><small>Movement</small></button>
+                <button class="entry-type" data-start-flow="event"><span>!</span><strong>Health event</strong><small>Body signal</small></button>
+                <button class="entry-type" data-start-flow="reading"><span>▤</span><strong>Reading</strong><small>Focus time</small></button>
+                <button class="entry-type" data-start-flow="writing"><span>✎</span><strong>Writing</strong><small>Focus time</small></button>
+                <button class="entry-type" data-start-flow="care"><span>✓</span><strong>Care</strong><small>& upkeep</small></button>
+                <button class="entry-type daily-entry-type" data-start-flow="checkin"><span>○</span><strong>Daily check-in</strong><small>Once today</small></button>
+              </div>
+            </section>
+          </div>
+
+          <section id="flowShell" class="flow-shell hidden" aria-live="polite">
+            <div class="flow-topline">
+              <button id="flowBack" class="flow-back" type="button">← Back</button>
+              <span id="flowProgress" class="flow-progress"></span>
+              <button id="flowCancel" class="flow-cancel" type="button">Cancel</button>
+            </div>
+            <div id="flowQuestion" class="flow-question"></div>
+          </section>
 
           <section class="log-picker" aria-labelledby="logPickerTitle">
             <div class="picker-heading">
@@ -643,6 +682,15 @@
 
           <section class="section-card insight-card insight-section hidden" data-insight-section="nourish">
             <div class="chart-head">
+              <div><p class="eyebrow">HYDRATION</p><h3>Water</h3></div>
+              <span id="waterChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="waterChart" class="trend-chart" role="img" aria-label="Daily water intake trend" aria-describedby="waterChartSummary"></canvas>
+            <p id="waterChartSummary" class="chart-summary muted small"></p>
+          </section>
+
+          <section class="section-card insight-card insight-section hidden" data-insight-section="nourish">
+            <div class="chart-head">
               <div><p class="eyebrow">NOURISH</p><h3>Medication & supplements</h3></div>
               <span id="medicationChartValue" class="chart-value">—</span>
             </div>
@@ -713,6 +761,15 @@
             <p id="careChartSummary" class="chart-summary muted small"></p>
           </section>
 
+          <section class="section-card insight-card insight-section hidden" data-insight-section="care">
+            <div class="chart-head">
+              <div><p class="eyebrow">DAILY</p><h3>How you felt</h3></div>
+              <span id="checkinChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="checkinChart" class="trend-chart" role="img" aria-label="Daily appetite, strength, mobility, and breath ratings" aria-describedby="checkinChartSummary"></canvas>
+            <p id="checkinChartSummary" class="chart-summary muted small"></p>
+          </section>
+
           <section class="section-card pattern-card insight-section" data-insight-section="overview">
             <div class="section-head">
               <div><p class="eyebrow">ANALYSIS</p><h3>Patterns worth noticing</h3></div>
@@ -754,6 +811,12 @@
           </div>
 
           <div class="settings-card">
+            <h3>Quick entries</h3>
+            <p class="muted small">Choose “Save & add to Quick” after recording something you repeat. Your reusable one-tap actions appear here.</p>
+            <div id="quickEntrySettings" class="quick-settings"></div>
+          </div>
+
+          <div class="settings-card">
             <h3>Backup</h3>
             <p class="muted small">Export an encrypted backup file. Keep it somewhere private, such as iCloud Drive.</p>
             <button id="exportBtn" class="secondary">Export encrypted backup</button>
@@ -782,6 +845,6 @@
       <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
     </section>
   </div>
-  <script src="app.js?v=5.1"></script>
+  <script src="app.js?v=6.1"></script>
 </body>
 </html>
