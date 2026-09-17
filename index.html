@@ -6,20 +6,20 @@
   <meta name="theme-color" content="#f7fbf7" />
   <meta name="description" content="A private, local-first tracker for health, reading, writing, and personal patterns." />
   <meta property="og:title" content="Verdant Health Tracker" />
-  <meta property="og:description" content="Track health, reading, and writing. See the patterns." />
+  <meta property="og:description" content="One calm place for Body, Nourish, Move, Focus, and Care." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://verdant-health-tracker.ardent-nova-4476.chatgpt.site" />
-  <meta property="og:image" content="https://verdant-health-tracker.ardent-nova-4476.chatgpt.site/og-v3.png" />
+  <meta property="og:image" content="https://verdant-health-tracker.ardent-nova-4476.chatgpt.site/og-v5.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Verdant Health Tracker" />
-  <meta name="twitter:description" content="Track health, reading, and writing. See the patterns." />
-  <meta name="twitter:image" content="https://verdant-health-tracker.ardent-nova-4476.chatgpt.site/og-v3.png" />
+  <meta name="twitter:description" content="One calm place for Body, Nourish, Move, Focus, and Care." />
+  <meta name="twitter:image" content="https://verdant-health-tracker.ardent-nova-4476.chatgpt.site/og-v5.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Verdant" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="manifest" href="manifest.webmanifest?v=4" />
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="manifest" href="manifest.webmanifest?v=5.1" />
+  <link rel="stylesheet" href="styles.css?v=5.1" />
   <title>Verdant Health Tracker</title>
 </head>
 <body>
@@ -72,29 +72,29 @@
               <small id="metricBodySub">No entry yet</small>
             </article>
             <article class="metric-card">
-              <span class="metric-label">Sleep</span>
+              <span class="metric-label">Rest</span>
               <strong id="metricSleep">—</strong>
               <small id="metricSleepSub">No entry yet</small>
             </article>
             <article class="metric-card">
-              <span class="metric-label">Food</span>
+              <span class="metric-label">Nourish</span>
               <strong id="metricFood">—</strong>
               <small id="metricFoodSub">0 entries today</small>
             </article>
             <article class="metric-card">
-              <span class="metric-label">Exercise</span>
+              <span class="metric-label">Move</span>
               <strong id="metricExercise">—</strong>
               <small id="metricExerciseSub">0 min today</small>
             </article>
             <article class="metric-card">
-              <span class="metric-label">Reading</span>
-              <strong id="metricReading">—</strong>
-              <small id="metricReadingSub">0 min today</small>
+              <span class="metric-label">Focus</span>
+              <strong id="metricFocus">—</strong>
+              <small id="metricFocusSub">No sessions today</small>
             </article>
             <article class="metric-card">
-              <span class="metric-label">Writing</span>
-              <strong id="metricWriting">—</strong>
-              <small id="metricWritingSub">0 min today</small>
+              <span class="metric-label">Care</span>
+              <strong id="metricCare">—</strong>
+              <small id="metricCareSub">Nothing logged today</small>
             </article>
           </div>
 
@@ -114,10 +114,35 @@
           <div class="section-title">
             <p class="eyebrow">QUICK LOG</p>
             <h2>Add an entry</h2>
-            <p class="muted">Keep it frictionless. You can add more detail later.</p>
+            <p class="muted">Choose one area, then the detail you want to record.</p>
           </div>
 
-          <div class="form-card">
+          <section class="log-picker" aria-labelledby="logPickerTitle">
+            <div class="picker-heading">
+              <div><p class="eyebrow">ONE CLEAR STEP</p><h3 id="logPickerTitle">What are you logging?</h3></div>
+              <span class="picker-count">5 areas</span>
+            </div>
+            <div id="logGroups" class="choice-row" aria-label="Log area">
+              <button class="choice active" data-log-group="body" aria-pressed="true">Body</button>
+              <button class="choice" data-log-group="nourish" aria-pressed="false">Nourish</button>
+              <button class="choice" data-log-group="move" aria-pressed="false">Move</button>
+              <button class="choice" data-log-group="focus" aria-pressed="false">Focus</button>
+              <button class="choice" data-log-group="care" aria-pressed="false">Care</button>
+            </div>
+            <div id="logSubtypes" class="choice-row choice-row-secondary" aria-label="Record type">
+              <button class="choice active" data-log-parent="body" data-log-form-select="body" aria-pressed="true">Measurements</button>
+              <button class="choice" data-log-parent="body" data-log-form-select="sleep" aria-pressed="false">Sleep</button>
+              <button class="choice" data-log-parent="body" data-log-form-select="event" aria-pressed="false">Health event</button>
+              <button class="choice hidden" data-log-parent="nourish" data-log-form-select="food" aria-pressed="false">Food</button>
+              <button class="choice hidden" data-log-parent="nourish" data-log-form-select="medication" aria-pressed="false">Medication & supplements</button>
+              <button class="choice hidden" data-log-parent="move" data-log-form-select="exercise" aria-pressed="false">Exercise</button>
+              <button class="choice hidden" data-log-parent="focus" data-log-form-select="reading" aria-pressed="false">Reading</button>
+              <button class="choice hidden" data-log-parent="focus" data-log-form-select="writing" aria-pressed="false">Writing</button>
+              <button class="choice hidden" data-log-parent="care" data-log-form-select="care" aria-pressed="false">Care & upkeep</button>
+            </div>
+          </section>
+
+          <div class="form-card log-form" data-log-form="body">
             <div class="form-heading">
               <div>
                 <p class="eyebrow">BODY</p>
@@ -177,7 +202,7 @@
             <button id="saveBody" class="primary">Save body entry</button>
           </div>
 
-          <div class="form-card">
+          <div class="form-card log-form hidden" data-log-form="sleep">
             <div class="form-heading">
               <div>
                 <p class="eyebrow">REST</p>
@@ -187,10 +212,10 @@
             </div>
             <div class="two-col">
               <label class="field-label" for="sleepStart">Fell asleep
-                <input id="sleepStart" type="datetime-local" />
+              <input id="sleepStart" type="datetime-local" required />
               </label>
               <label class="field-label" for="sleepEnd">Woke up
-                <input id="sleepEnd" type="datetime-local" />
+              <input id="sleepEnd" type="datetime-local" required />
               </label>
             </div>
             <p id="sleepDurationHelp" class="field-help">Duration is calculated automatically.</p>
@@ -211,7 +236,69 @@
             <button id="saveSleep" class="primary">Save sleep</button>
           </div>
 
-          <div class="form-card">
+          <div class="form-card log-form hidden" data-log-form="event">
+            <div class="form-heading">
+              <div>
+                <p class="eyebrow">BODY</p>
+                <h3>Health event</h3>
+              </div>
+              <span class="estimate-pill">Quick record</span>
+            </div>
+            <p class="field-help">Record something that happened. Details appear only when they are useful.</p>
+            <label class="field-label" for="eventKind">What happened?
+              <select id="eventKind">
+                <option value="bowel">Bowel movement</option>
+                <option value="period-start">Period started</option>
+                <option value="period-end">Period ended</option>
+                <option value="diarrhea">Diarrhea</option>
+                <option value="vomiting">Vomiting</option>
+                <option value="symptom">Symptom or sudden change</option>
+                <option value="other">Other event</option>
+              </select>
+            </label>
+            <div id="eventBowelFields" class="two-col conditional-fields">
+              <label class="field-label" for="eventBowelForm">Stool form <span class="label-hint">optional</span>
+                <select id="eventBowelForm">
+                  <option value="">Not recorded</option>
+                  <option value="1">Type 1 · hard pellets</option>
+                  <option value="2">Type 2 · firm and lumpy</option>
+                  <option value="3">Type 3 · cracked surface</option>
+                  <option value="4">Type 4 · smooth and soft</option>
+                  <option value="5">Type 5 · soft pieces</option>
+                  <option value="6">Type 6 · mushy</option>
+                  <option value="7">Type 7 · liquid</option>
+                </select>
+              </label>
+              <label class="field-label" for="eventEase">How did it feel? <span class="label-hint">optional</span>
+                <select id="eventEase">
+                  <option value="">Not recorded</option>
+                  <option value="easy">Easy</option>
+                  <option value="neutral">Neutral</option>
+                  <option value="difficult">Difficult</option>
+                </select>
+              </label>
+            </div>
+            <div id="eventNameField" class="conditional-fields hidden">
+              <label class="field-label" for="eventName"><span id="eventNamePrompt">Event name</span>
+                <input id="eventName" type="text" placeholder="Describe it briefly" autocomplete="off" />
+              </label>
+            </div>
+            <div id="eventSeverityField" class="conditional-fields hidden">
+              <label class="range-field" for="eventSeverity">
+                <span>Intensity <output id="eventSeverityOutput" for="eventSeverity">5 / 10</output></span>
+                <input id="eventSeverity" type="range" min="1" max="10" value="5" />
+              </label>
+            </div>
+            <label class="field-label" for="eventDate">When did it happen?
+              <input id="eventDate" type="datetime-local" required />
+            </label>
+            <label class="field-label" for="eventNote">Note
+              <textarea id="eventNote" rows="2" placeholder="Optional context, triggers, or anything unusual"></textarea>
+            </label>
+            <button id="saveEvent" class="primary">Save health event</button>
+          </div>
+
+          <div class="form-card log-form hidden" data-log-form="food">
             <div class="form-heading">
               <div>
                 <p class="eyebrow">NOURISHMENT</p>
@@ -219,6 +306,7 @@
               </div>
               <span id="foodCaloriePreview" class="estimate-pill">Add details</span>
             </div>
+            <p class="field-help">Meals and snacks only. Log vitamins, powders, herbs, and medicines under Medication & supplements.</p>
             <div class="two-col">
               <label class="field-label" for="foodMeal">Meal
                 <select id="foodMeal">
@@ -226,7 +314,6 @@
                   <option value="lunch">Lunch</option>
                   <option value="dinner">Dinner</option>
                   <option value="snack">Snack</option>
-                  <option value="supplement">Supplement</option>
                 </select>
               </label>
               <label class="field-label" for="foodCategory">Food group
@@ -237,17 +324,16 @@
                   <option value="fat">Healthy fats</option>
                   <option value="dairy">Dairy</option>
                   <option value="beverage">Beverage</option>
-                  <option value="supplement">Supplement</option>
                   <option value="other">Other / mixed meal</option>
                 </select>
               </label>
             </div>
             <label class="field-label" for="foodName">What did you have?
-              <input id="foodName" type="text" placeholder="e.g. cooked brown rice" autocomplete="off" />
+              <input id="foodName" type="text" placeholder="e.g. cooked brown rice" autocomplete="off" required />
             </label>
             <div class="amount-row">
               <label class="field-label" for="foodAmount">How much?
-                <input id="foodAmount" type="number" inputmode="decimal" min="0" step="0.1" placeholder="1" />
+                <input id="foodAmount" type="number" inputmode="decimal" min="0.1" step="0.1" placeholder="1" required />
               </label>
               <label class="field-label" for="foodUnit">Unit
                 <select id="foodUnit">
@@ -266,8 +352,8 @@
               <input id="foodCalories" type="number" inputmode="numeric" min="0" placeholder="Calculated automatically" />
             </label>
             <p id="foodEstimateMeta" class="field-help">Enter a food and amount. You can correct the estimate before saving.</p>
-            <label class="field-label" for="foodDate">Time
-              <input id="foodDate" type="datetime-local" />
+            <label class="field-label" for="foodDate">When did you have it?
+              <input id="foodDate" type="datetime-local" required />
             </label>
             <label class="range-field" for="appetiteRating">
               <span>Appetite regulation today <output id="appetiteRatingOutput" for="appetiteRating">7 / 10</output></span>
@@ -279,7 +365,65 @@
             <button id="saveFood" class="primary">Save food</button>
           </div>
 
-          <div class="form-card">
+          <div class="form-card log-form hidden" data-log-form="medication">
+            <div class="form-heading">
+              <div>
+                <p class="eyebrow">NOURISH</p>
+                <h3>Medication & supplements</h3>
+              </div>
+              <span class="estimate-pill">Dose log</span>
+            </div>
+            <div class="two-col">
+              <label class="field-label" for="medicationKind">Type
+                <select id="medicationKind">
+                  <option value="supplement">Supplement</option>
+                  <option value="prescription">Prescription medication</option>
+                  <option value="otc">Over-the-counter medication</option>
+                  <option value="traditional">Traditional / herbal</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label class="field-label" for="medicationStatus">Status
+                <select id="medicationStatus">
+                  <option value="taken">Taken</option>
+                  <option value="late">Taken late</option>
+                  <option value="missed">Missed</option>
+                  <option value="skipped">Skipped intentionally</option>
+                </select>
+              </label>
+            </div>
+            <label class="field-label" for="medicationName">Name
+              <input id="medicationName" type="text" placeholder="e.g. vitamin D or medication name" autocomplete="off" required />
+            </label>
+            <div class="amount-row">
+              <label class="field-label" for="medicationAmount">Dose <span class="label-hint">optional for missed doses</span>
+                <input id="medicationAmount" type="number" inputmode="decimal" min="0" step="0.1" placeholder="1" />
+              </label>
+              <label class="field-label" for="medicationUnit">Unit
+                <select id="medicationUnit">
+                  <option value="tablet">tablet</option>
+                  <option value="capsule">capsule</option>
+                  <option value="mg">mg</option>
+                  <option value="mcg">mcg</option>
+                  <option value="g">g</option>
+                  <option value="ml">mL</option>
+                  <option value="drop">drop</option>
+                  <option value="scoop">scoop</option>
+                  <option value="dose">dose</option>
+                  <option value="other">other</option>
+                </select>
+              </label>
+            </div>
+            <label class="field-label" for="medicationDate">Scheduled or taken at
+              <input id="medicationDate" type="datetime-local" required />
+            </label>
+            <label class="field-label" for="medicationNote">Note
+              <textarea id="medicationNote" rows="2" placeholder="Optional reason, response, or reminder"></textarea>
+            </label>
+            <button id="saveMedication" class="primary">Save medication or supplement</button>
+          </div>
+
+          <div class="form-card log-form hidden" data-log-form="exercise">
             <div class="form-heading">
               <div>
                 <p class="eyebrow">MOVEMENT</p>
@@ -309,9 +453,9 @@
               <input id="exerciseName" type="text" placeholder="e.g. hiking, swimming, treadmill running" autocomplete="off" />
             </label>
             <div class="two-col">
-              <label class="field-label" for="exerciseMinutes">Time
+              <label class="field-label" for="exerciseMinutes">Duration
                 <span class="input-suffix">
-                  <input id="exerciseMinutes" type="number" inputmode="numeric" min="1" placeholder="30" />
+                  <input id="exerciseMinutes" type="number" inputmode="numeric" min="1" placeholder="30" required />
                   <span>min</span>
                 </span>
               </label>
@@ -320,8 +464,8 @@
               </label>
             </div>
             <p id="exerciseEstimateMeta" class="field-help">Based on activity, intensity, time, and your latest weight.</p>
-            <label class="field-label" for="exerciseDate">Time
-              <input id="exerciseDate" type="datetime-local" />
+            <label class="field-label" for="exerciseDate">When did you exercise?
+              <input id="exerciseDate" type="datetime-local" required />
             </label>
             <div class="reflection-group" aria-labelledby="movementReflectionTitle">
               <h4 id="movementReflectionTitle">How did your body feel today?</h4>
@@ -344,7 +488,7 @@
             <button id="saveExercise" class="primary">Save exercise</button>
           </div>
 
-          <div class="form-card">
+          <div class="form-card log-form hidden" data-log-form="reading">
             <div class="form-heading">
               <div>
                 <p class="eyebrow">LEARNING</p>
@@ -354,15 +498,15 @@
             </div>
             <div class="two-col">
               <label class="field-label" for="readingStart">Started
-                <input id="readingStart" type="datetime-local" />
+                <input id="readingStart" type="datetime-local" required />
               </label>
               <label class="field-label" for="readingEnd">Finished
-                <input id="readingEnd" type="datetime-local" />
+                <input id="readingEnd" type="datetime-local" required />
               </label>
             </div>
             <p id="readingDurationHelp" class="field-help">Length is calculated automatically.</p>
             <label class="field-label" for="readingTitle">Book title
-              <input id="readingTitle" type="text" placeholder="What are you reading?" autocomplete="off" />
+              <input id="readingTitle" type="text" placeholder="What are you reading?" autocomplete="off" required />
             </label>
             <label class="field-label" for="readingCategory">Category
               <select id="readingCategory">
@@ -384,7 +528,7 @@
             <button id="saveReading" class="primary">Save reading</button>
           </div>
 
-          <div class="form-card">
+          <div class="form-card log-form hidden" data-log-form="writing">
             <div class="form-heading">
               <div>
                 <p class="eyebrow">CREATION</p>
@@ -394,10 +538,10 @@
             </div>
             <div class="two-col">
               <label class="field-label" for="writingStart">Started
-                <input id="writingStart" type="datetime-local" />
+                <input id="writingStart" type="datetime-local" required />
               </label>
               <label class="field-label" for="writingEnd">Finished
-                <input id="writingEnd" type="datetime-local" />
+                <input id="writingEnd" type="datetime-local" required />
               </label>
             </div>
             <p id="writingDurationHelp" class="field-help">Length is calculated automatically.</p>
@@ -420,6 +564,38 @@
             </label>
             <button id="saveWriting" class="primary">Save writing</button>
           </div>
+
+          <div class="form-card log-form hidden" data-log-form="care">
+            <div class="form-heading">
+              <div>
+                <p class="eyebrow">CARE</p>
+                <h3>Care & upkeep</h3>
+              </div>
+              <span class="estimate-pill">Daily check-in</span>
+            </div>
+            <p class="field-help">Personal care and your immediate space belong together here—small things that help you feel looked after.</p>
+            <fieldset class="check-fieldset">
+              <legend>What did you do?</legend>
+              <div class="check-grid">
+                <label class="check-choice"><input id="careBrush" type="checkbox" value="brush" /><span>Brushed teeth</span></label>
+                <label class="check-choice"><input id="careFloss" type="checkbox" value="floss" /><span>Flossed</span></label>
+                <label class="check-choice"><input id="careFace" type="checkbox" value="wash-face" /><span>Washed face</span></label>
+                <label class="check-choice"><input id="careSkincare" type="checkbox" value="skincare" /><span>Skincare</span></label>
+                <label class="check-choice"><input id="careShower" type="checkbox" value="shower" /><span>Showered</span></label>
+                <label class="check-choice"><input id="careRoom" type="checkbox" value="tidy-room" /><span>Tidied room</span></label>
+              </div>
+            </fieldset>
+            <label class="field-label" for="careCustom">Something else? <span class="label-hint">optional, separate multiple items with commas</span>
+              <input id="careCustom" type="text" placeholder="e.g. changed sheets, hair care" autocomplete="off" />
+            </label>
+            <label class="field-label" for="careDate">Date
+              <input id="careDate" type="date" required />
+            </label>
+            <label class="field-label" for="careNote">Note
+              <textarea id="careNote" rows="2" placeholder="Anything about energy, ease, or what helped"></textarea>
+            </label>
+            <button id="saveCare" class="primary">Save care check-in</button>
+          </div>
         </section>
 
         <section id="insightsView" class="view hidden">
@@ -436,9 +612,18 @@
             </div>
           </div>
 
-          <div id="summaryMetrics" class="summary-grid"></div>
+          <div class="segmented insight-groups" id="insightGroup" aria-label="Trend area">
+            <button class="seg active" data-insight-group="overview" aria-pressed="true">Overview</button>
+            <button class="seg" data-insight-group="body" aria-pressed="false">Body</button>
+            <button class="seg" data-insight-group="nourish" aria-pressed="false">Nourish</button>
+            <button class="seg" data-insight-group="move" aria-pressed="false">Move</button>
+            <button class="seg" data-insight-group="focus" aria-pressed="false">Focus</button>
+            <button class="seg" data-insight-group="care" aria-pressed="false">Care</button>
+          </div>
 
-          <section class="section-card insight-card">
+          <div id="summaryMetrics" class="summary-grid insight-section" data-insight-section="overview"></div>
+
+          <section class="section-card insight-card insight-section hidden" data-insight-section="body">
             <div class="chart-head">
               <div><p class="eyebrow">REST</p><h3>Sleep rhythm</h3></div>
               <span id="sleepChartValue" class="chart-value">—</span>
@@ -447,7 +632,7 @@
             <p id="sleepChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="nourish">
             <div class="chart-head">
               <div><p class="eyebrow">NOURISHMENT</p><h3>Food energy</h3></div>
               <span id="foodChartValue" class="chart-value">—</span>
@@ -456,7 +641,16 @@
             <p id="foodChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="nourish">
+            <div class="chart-head">
+              <div><p class="eyebrow">NOURISH</p><h3>Medication & supplements</h3></div>
+              <span id="medicationChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="medicationChart" class="trend-chart" role="img" aria-label="Daily medication and supplement records" aria-describedby="medicationChartSummary"></canvas>
+            <p id="medicationChartSummary" class="chart-summary muted small"></p>
+          </section>
+
+          <section class="section-card insight-card insight-section hidden" data-insight-section="move">
             <div class="chart-head">
               <div><p class="eyebrow">MOVEMENT</p><h3>Active time</h3></div>
               <span id="exerciseChartValue" class="chart-value">—</span>
@@ -465,7 +659,7 @@
             <p id="exerciseChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="body">
             <div class="chart-head">
               <div><p class="eyebrow">BODY</p><h3>Weight trend</h3></div>
               <span id="weightChartValue" class="chart-value">—</span>
@@ -474,7 +668,7 @@
             <p id="weightChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="body">
             <div class="chart-head">
               <div><p class="eyebrow">BODY</p><h3>Measurement trend</h3></div>
               <span id="bodyChartValue" class="chart-value">—</span>
@@ -483,7 +677,16 @@
             <p id="bodyChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="body">
+            <div class="chart-head">
+              <div><p class="eyebrow">BODY</p><h3>Health events</h3></div>
+              <span id="eventChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="eventChart" class="trend-chart" role="img" aria-label="Daily health event count" aria-describedby="eventChartSummary"></canvas>
+            <p id="eventChartSummary" class="chart-summary muted small"></p>
+          </section>
+
+          <section class="section-card insight-card insight-section hidden" data-insight-section="focus">
             <div class="chart-head">
               <div><p class="eyebrow">LEARNING</p><h3>Reading time</h3></div>
               <span id="readingChartValue" class="chart-value">—</span>
@@ -492,7 +695,7 @@
             <p id="readingChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="focus">
             <div class="chart-head">
               <div><p class="eyebrow">CREATION</p><h3>Writing time</h3></div>
               <span id="writingChartValue" class="chart-value">—</span>
@@ -501,7 +704,16 @@
             <p id="writingChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card pattern-card">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="care">
+            <div class="chart-head">
+              <div><p class="eyebrow">CARE</p><h3>Care & upkeep</h3></div>
+              <span id="careChartValue" class="chart-value">—</span>
+            </div>
+            <canvas id="careChart" class="trend-chart" role="img" aria-label="Daily completed care actions" aria-describedby="careChartSummary"></canvas>
+            <p id="careChartSummary" class="chart-summary muted small"></p>
+          </section>
+
+          <section class="section-card pattern-card insight-section" data-insight-section="overview">
             <div class="section-head">
               <div><p class="eyebrow">ANALYSIS</p><h3>Patterns worth noticing</h3></div>
             </div>
@@ -516,11 +728,10 @@
             <div class="segmented" id="historyFilter">
               <button class="seg active" data-filter="all">All</button>
               <button class="seg" data-filter="body">Body</button>
-              <button class="seg" data-filter="sleep">Sleep</button>
-              <button class="seg" data-filter="food">Food</button>
-              <button class="seg" data-filter="exercise">Exercise</button>
-              <button class="seg" data-filter="reading">Reading</button>
-              <button class="seg" data-filter="writing">Writing</button>
+              <button class="seg" data-filter="nourish">Nourish</button>
+              <button class="seg" data-filter="move">Move</button>
+              <button class="seg" data-filter="focus">Focus</button>
+              <button class="seg" data-filter="care">Care</button>
             </div>
           </div>
           <div id="historyEntries" class="entry-list"></div>
@@ -571,6 +782,6 @@
       <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
     </section>
   </div>
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5.1"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const APP_VERSION = 4;
+const APP_VERSION = 5;
 const STORAGE_KEY = "verdant-vault-v1";
 const SALT_KEY = "verdant-salt-v1";
 const ITERATIONS = 250000;
@@ -8,6 +8,10 @@ let vault = { version: APP_VERSION, entries: [] };
 let cryptoKey = null;
 let currentFilter = "all";
 let currentPeriod = "week";
+let currentInsightGroup = "overview";
+let currentLogGroup = "body";
+let currentLogForm = "body";
+let selectedLogFormsByGroup = { body: "body", nourish: "food", move: "exercise", focus: "reading", care: "care" };
 let inactivityTimer = null;
 let resizeTimer = null;
 
@@ -25,17 +29,19 @@ const icons = {
   weight: "◍",
   sleep: "☾",
   food: "⌁",
+  medication: "✦",
+  event: "!",
   exercise: "↗",
   reading: "▤",
-  writing: "✎"
+  writing: "✎",
+  care: "✓"
 };
 
 const mealLabels = {
   breakfast: "Breakfast",
   lunch: "Lunch",
   dinner: "Dinner",
-  snack: "Snack",
-  supplement: "Supplement"
+  snack: "Snack"
 };
 
 const foodCategoryLabels = {
@@ -45,8 +51,66 @@ const foodCategoryLabels = {
   fat: "Healthy fats",
   dairy: "Dairy",
   beverage: "Beverage",
-  supplement: "Supplement",
   other: "Mixed / other"
+};
+
+const medicationKindLabels = {
+  supplement: "Supplement",
+  prescription: "Prescription medication",
+  otc: "Over-the-counter medication",
+  traditional: "Traditional / herbal",
+  other: "Other"
+};
+
+const medicationStatusLabels = {
+  taken: "Taken",
+  late: "Taken late",
+  missed: "Missed",
+  skipped: "Skipped intentionally"
+};
+
+const eventKindLabels = {
+  bowel: "Bowel movement",
+  "period-start": "Period started",
+  "period-end": "Period ended",
+  diarrhea: "Diarrhea",
+  vomiting: "Vomiting",
+  symptom: "Symptom or sudden change",
+  other: "Other event"
+};
+
+const careItemLabels = {
+  brush: "Brushed teeth",
+  floss: "Flossed",
+  "wash-face": "Washed face",
+  skincare: "Skincare",
+  shower: "Showered",
+  "tidy-room": "Tidied room"
+};
+
+const CARE_INPUTS = [
+  { id: "careBrush", key: "brush" },
+  { id: "careFloss", key: "floss" },
+  { id: "careFace", key: "wash-face" },
+  { id: "careSkincare", key: "skincare" },
+  { id: "careShower", key: "shower" },
+  { id: "careRoom", key: "tidy-room" }
+];
+
+const RECORD_GROUPS = {
+  body: ["body", "sleep", "event"],
+  nourish: ["food", "medication"],
+  move: ["exercise"],
+  focus: ["reading", "writing"],
+  care: ["care"]
+};
+
+const LOG_GROUP_DEFAULTS = {
+  body: "body",
+  nourish: "food",
+  move: "exercise",
+  focus: "reading",
+  care: "care"
 };
 
 const exerciseCategoryLabels = {
@@ -249,7 +313,7 @@ async function decryptVault(key) {
 function migrateVault(data) {
   const entries = Array.isArray(data?.entries) ? data.entries : [];
   const migratedEntries = entries.map((entry) => {
-    const migrated = { ...entry };
+    const migrated = { ...entry, schemaVersion: Number(entry.schemaVersion) || 1 };
     if (entry.type === "weight") {
       migrated.type = "body";
       migrated.weight = entry.unit === "lb"
@@ -261,23 +325,52 @@ function migrateVault(data) {
       if (entry.unit === "lb") migrated.migratedFromUnit = "lb";
       delete migrated.value;
       delete migrated.unit;
-    }
-    if (entry.type === "body") {
+    } else if (entry.type === "body") {
       migrated.weight = entry.weight == null ? null : Number(entry.weight);
       migrated.weightUnit = entry.weightUnit || "kg";
       migrated.measurements = entry.measurements || {};
       migrated.measurementUnit = entry.measurementUnit || "cm";
-    }
-    if (entry.type === "sleep") migrated.hours = Number(entry.hours) || 0;
-    if (entry.type === "food") {
+    } else if (entry.type === "sleep") {
+      migrated.hours = Number(entry.hours) || 0;
+    } else if (entry.type === "food" && (entry.meal === "supplement" || entry.category === "supplement")) {
+      migrated.type = "medication";
+      migrated.kind = "supplement";
+      migrated.name = entry.name || "Supplement";
+      migrated.doseAmount = entry.amount == null ? null : Number(entry.amount);
+      migrated.doseUnit = entry.unit || "dose";
+      migrated.status = "taken";
+      migrated.note = entry.appetiteNote || "";
+      migrated.legacyFood = {
+        calories: entry.calories ?? null,
+        calorieSource: entry.calorieSource || null,
+        appetiteRating: entry.appetiteRating ?? null
+      };
+      ["meal", "category", "amount", "unit", "calories", "calorieSource", "appetiteRating", "appetiteNote"].forEach((key) => delete migrated[key]);
+    } else if (entry.type === "food") {
       migrated.meal = entry.meal || "snack";
       migrated.category = entry.category || "other";
-    }
-    if (entry.type === "exercise") {
+    } else if (entry.type === "medication") {
+      migrated.kind = medicationKindLabels[entry.kind] ? entry.kind : "other";
+      migrated.name = String(entry.name || "Medication");
+      migrated.doseAmount = entry.doseAmount == null ? null : Number(entry.doseAmount);
+      migrated.doseUnit = entry.doseUnit || "dose";
+      migrated.status = medicationStatusLabels[entry.status] ? entry.status : "taken";
+      migrated.note = entry.note || "";
+    } else if (entry.type === "event") {
+      migrated.kind = eventKindLabels[entry.kind] ? entry.kind : "other";
+      migrated.name = String(entry.name || "");
+      migrated.severity = entry.severity == null ? null : Number(entry.severity);
+      migrated.bowelForm = entry.bowelForm == null || entry.bowelForm === "" ? null : Number(entry.bowelForm);
+      migrated.ease = ["easy", "neutral", "difficult"].includes(entry.ease) ? entry.ease : null;
+      migrated.note = entry.note || "";
+    } else if (entry.type === "care") {
+      migrated.items = [...new Set((Array.isArray(entry.items) ? entry.items : []).map(String))];
+      migrated.customItems = [...new Set((Array.isArray(entry.customItems) ? entry.customItems : []).map(String).filter(Boolean))];
+      migrated.note = entry.note || "";
+    } else if (entry.type === "exercise") {
       migrated.category = entry.category === "aerobic" ? "cardio" : (entry.category || "cardio");
       migrated.intensity = entry.intensity || "moderate";
-    }
-    if (entry.type === "reading" || entry.type === "writing") {
+    } else if (entry.type === "reading" || entry.type === "writing") {
       migrated.minutes = Number(entry.minutes) || 0;
     }
     return migrated;
@@ -338,6 +431,7 @@ function enterApp() {
   $("unlockPin").value = "";
   showView("dashboard");
   setDefaultDates();
+  selectLogGroup(currentLogGroup);
   renderAll();
   resetInactivity();
 }
@@ -371,7 +465,8 @@ function setDefaultDates() {
   const now = new Date();
   const localDateTime = toLocalInputValue(now);
   $("bodyDate").value = todayKey(now);
-  ["foodDate", "exerciseDate"].forEach((id) => $(id).value = localDateTime);
+  $("careDate").value = todayKey(now);
+  ["foodDate", "medicationDate", "exerciseDate", "eventDate"].forEach((id) => $(id).value = localDateTime);
   setDefaultSleepTimes();
   setDefaultTimedActivity("readingStart", "readingEnd");
   setDefaultTimedActivity("writingStart", "writingEnd");
@@ -379,6 +474,7 @@ function setDefaultDates() {
   updateWritingDuration();
   updateFoodEstimate();
   updateExerciseEstimate();
+  updateEventFields();
 }
 
 function parseDate(value) {
@@ -427,6 +523,7 @@ function addEntry(type, payload, date) {
   vault.entries.push({
     id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
     type,
+    schemaVersion: 1,
     date,
     createdAt: new Date().toISOString(),
     ...payload
@@ -444,6 +541,65 @@ function renderAll() {
   renderDashboard();
   renderHistory();
   if (!$("insightsView").classList.contains("hidden")) renderInsights();
+}
+
+function recordGroup(type) {
+  return Object.entries(RECORD_GROUPS).find(([, types]) => types.includes(type))?.[0] || "body";
+}
+
+function selectLogGroup(group) {
+  if (!RECORD_GROUPS[group]) return;
+  currentLogGroup = group;
+  currentLogForm = selectedLogFormsByGroup[group] || LOG_GROUP_DEFAULTS[group];
+  document.querySelectorAll("[data-log-group]").forEach((button) => {
+    const active = button.dataset.logGroup === group;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelectorAll("[data-log-parent]").forEach((button) => {
+    button.classList.toggle("hidden", button.dataset.logParent !== group);
+    const active = button.dataset.logFormSelect === currentLogForm;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelectorAll("[data-log-form]").forEach((form) => {
+    form.classList.toggle("hidden", form.dataset.logForm !== currentLogForm);
+  });
+}
+
+function selectLogForm(formName) {
+  const group = recordGroup(formName);
+  if (group !== currentLogGroup) return;
+  currentLogForm = formName;
+  selectedLogFormsByGroup[group] = formName;
+  document.querySelectorAll("[data-log-form-select]").forEach((button) => {
+    const active = button.dataset.logFormSelect === formName;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelectorAll("[data-log-form]").forEach((form) => {
+    form.classList.toggle("hidden", form.dataset.logForm !== formName);
+  });
+}
+
+function updateInsightVisibility() {
+  document.querySelectorAll("[data-insight-group]").forEach((button) => {
+    const active = button.dataset.insightGroup === currentInsightGroup;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelectorAll("[data-insight-section]").forEach((section) => {
+    section.classList.toggle("hidden", section.dataset.insightSection !== currentInsightGroup);
+  });
+}
+
+function updateEventFields() {
+  const kind = $("eventKind").value;
+  const custom = kind === "symptom" || kind === "other";
+  $("eventBowelFields").classList.toggle("hidden", kind !== "bowel");
+  $("eventNameField").classList.toggle("hidden", !custom);
+  $("eventSeverityField").classList.toggle("hidden", !["diarrhea", "vomiting", "symptom", "other"].includes(kind));
+  $("eventNamePrompt").textContent = kind === "symptom" ? "What did you notice?" : "Event name";
 }
 
 function entriesByType(type) {
@@ -500,6 +656,24 @@ function measurementDetails(entry, limit = BODY_MEASUREMENTS.length) {
   }).filter(Boolean).slice(0, limit);
 }
 
+function careActionLabels(entry) {
+  const standard = (Array.isArray(entry.items) ? entry.items : []).map((item) => careItemLabels[item] || titleCase(item));
+  const custom = (Array.isArray(entry.customItems) ? entry.customItems : []).map((item) => String(item).trim()).filter(Boolean);
+  return [...standard, ...custom];
+}
+
+function medicationDoseText(entry) {
+  const amount = Number(entry.doseAmount);
+  if (!Number.isFinite(amount) || amount <= 0) return "";
+  const unit = entry.doseUnit === "ml" ? "mL" : (entry.doseUnit || "dose");
+  return `${round(amount, 2)} ${unit}`;
+}
+
+function eventTitle(entry) {
+  if ((entry.kind === "symptom" || entry.kind === "other") && entry.name) return entry.name;
+  return eventKindLabels[entry.kind] || entry.name || "Health event";
+}
+
 function renderDashboard() {
   const today = todayKey();
   $("heroDate").textContent = new Intl.DateTimeFormat(undefined, {
@@ -513,14 +687,21 @@ function renderDashboard() {
   const todayExercise = entriesByType("exercise").filter((entry) => todayKey(entry.date) === today);
   const todayReading = entriesByType("reading").filter((entry) => todayKey(entry.date) === today);
   const todayWriting = entriesByType("writing").filter((entry) => todayKey(entry.date) === today);
+  const todayMedication = entriesByType("medication").filter((entry) => todayKey(entry.date) === today);
+  const todayEvents = entriesByType("event").filter((entry) => todayKey(entry.date) === today);
+  const todayCare = entriesByType("care").filter((entry) => todayKey(entry.date) === today);
 
   if (latestBody) {
     const count = measurementCount(latestBody);
     $("metricBody").textContent = hasBodyWeight(latestBody) ? weightText(latestBody) : `${count} measured`;
     $("metricBodySub").textContent = [
       count ? `${count} measurement${count === 1 ? "" : "s"}` : "",
-      formatDateOnly(latestBody.date)
+      formatDateOnly(latestBody.date),
+      todayEvents.length ? `${todayEvents.length} event${todayEvents.length === 1 ? "" : "s"} today` : ""
     ].filter(Boolean).join(" · ");
+  } else if (todayEvents.length) {
+    $("metricBody").textContent = `${todayEvents.length} event${todayEvents.length === 1 ? "" : "s"}`;
+    $("metricBodySub").textContent = "Logged today";
   } else {
     $("metricBody").textContent = "—";
     $("metricBodySub").textContent = "No entry yet";
@@ -537,20 +718,24 @@ function renderDashboard() {
   }
 
   const calorieTotal = todayFood.reduce((sum, entry) => sum + (Number(entry.calories) || 0), 0);
-  $("metricFood").textContent = calorieTotal ? `${Math.round(calorieTotal)} kcal` : `${todayFood.length}`;
-  $("metricFoodSub").textContent = `${todayFood.length} ${todayFood.length === 1 ? "entry" : "entries"} today`;
+  $("metricFood").textContent = calorieTotal ? `${Math.round(calorieTotal)} kcal` : `${todayFood.length + todayMedication.length}`;
+  $("metricFoodSub").textContent = `${todayFood.length} food · ${todayMedication.length} dose${todayMedication.length === 1 ? "" : "s"}`;
 
   const minutes = todayExercise.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
   $("metricExercise").textContent = minutes ? `${minutes} min` : "—";
   $("metricExerciseSub").textContent = `${todayExercise.length} ${todayExercise.length === 1 ? "session" : "sessions"} today`;
 
   const readingMinutes = todayReading.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
-  $("metricReading").textContent = readingMinutes ? formatDurationShort(readingMinutes) : "—";
-  $("metricReadingSub").textContent = `${todayReading.length} ${todayReading.length === 1 ? "session" : "sessions"} today`;
-
   const writingMinutes = todayWriting.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
-  $("metricWriting").textContent = writingMinutes ? formatDurationShort(writingMinutes) : "—";
-  $("metricWritingSub").textContent = `${todayWriting.length} ${todayWriting.length === 1 ? "session" : "sessions"} today`;
+  const focusMinutes = readingMinutes + writingMinutes;
+  $("metricFocus").textContent = focusMinutes ? formatDurationShort(focusMinutes) : "—";
+  $("metricFocusSub").textContent = `${todayReading.length} reading · ${todayWriting.length} writing`;
+
+  const careActions = new Set(todayCare.flatMap(careActionLabels));
+  $("metricCare").textContent = careActions.size ? `${careActions.size} done` : "—";
+  $("metricCareSub").textContent = todayCare.length
+    ? `${todayCare.length} check-in${todayCare.length === 1 ? "" : "s"} today`
+    : "Nothing logged today";
 
   renderEntryList($("recentEntries"), vault.entries.slice(0, 6), false);
 }
@@ -563,7 +748,7 @@ function renderHistory() {
   });
   const filtered = currentFilter === "all"
     ? vault.entries
-    : vault.entries.filter((entry) => entry.type === currentFilter);
+    : vault.entries.filter((entry) => recordGroup(entry.type) === currentFilter);
   renderEntryList($("historyEntries"), filtered, true);
 }
 
@@ -575,6 +760,19 @@ function entryText(entry) {
       title: "Body",
       value: weightText(entry) || `${count} measurement${count === 1 ? "" : "s"}`,
       sub: [formatDateOnly(entry.date), ...details].join(" · "),
+      note: entry.note || ""
+    };
+  }
+  if (entry.type === "event") {
+    const details = [
+      entry.kind === "bowel" && entry.bowelForm ? `Stool type ${entry.bowelForm}` : "",
+      entry.kind === "bowel" && entry.ease ? titleCase(entry.ease) : "",
+      entry.severity ? `Intensity ${entry.severity}/10` : ""
+    ].filter(Boolean);
+    return {
+      title: eventTitle(entry),
+      value: entry.kind === "bowel" && entry.bowelForm ? `Type ${entry.bowelForm}` : (entry.severity ? `${entry.severity}/10` : ""),
+      sub: [eventKindLabels[entry.kind], ...details, formatDateTime(entry.date)].filter(Boolean).join(" · "),
       note: entry.note || ""
     };
   }
@@ -604,6 +802,16 @@ function entryText(entry) {
       note: [entry.appetiteRating ? `Appetite ${entry.appetiteRating}/10` : "", entry.appetiteNote].filter(Boolean).join(" — ")
     };
   }
+  if (entry.type === "medication") {
+    const dose = medicationDoseText(entry);
+    const status = medicationStatusLabels[entry.status] || titleCase(entry.status || "taken");
+    return {
+      title: entry.name || "Medication or supplement",
+      value: dose || status,
+      sub: [medicationKindLabels[entry.kind] || "Other", status, formatDateTime(entry.date)].join(" · "),
+      note: entry.note || ""
+    };
+  }
   if (entry.type === "exercise") {
     const category = exerciseCategoryLabels[entry.category] || "Exercise";
     return {
@@ -626,6 +834,15 @@ function entryText(entry) {
       title: entry.topic || "Writing",
       value: formatDurationShort(entry.minutes),
       sub: `${writingCategoryLabels[entry.category] || "Writing"} · ${formatDateTime(entry.start || entry.date)} → ${formatDateTime(entry.end || entry.date)}`,
+      note: entry.note || ""
+    };
+  }
+  if (entry.type === "care") {
+    const actions = careActionLabels(entry);
+    return {
+      title: "Care & upkeep",
+      value: `${actions.length} done`,
+      sub: [formatDateOnly(entry.date), ...actions].join(" · "),
       note: entry.note || ""
     };
   }
@@ -680,6 +897,7 @@ function showView(name) {
     else tab.removeAttribute("aria-current");
   });
   if (name === "insights") requestAnimationFrame(renderInsights);
+  if (name === "add") selectLogGroup(currentLogGroup);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -922,18 +1140,42 @@ function formatPeriodRange(dates) {
   return `${formatShortDate(dates[0])}–${formatShortDate(dates[dates.length - 1])}`;
 }
 
+function periodTrackingSummary(entries = entriesByType("event")) {
+  const periodEvents = entries
+    .filter((entry) => entry.kind === "period-start" || entry.kind === "period-end")
+    .sort((a, b) => (parseDate(a.date) || 0) - (parseDate(b.date) || 0));
+  let openStart = null;
+  let lastDuration = null;
+  periodEvents.forEach((entry) => {
+    const date = parseDate(entry.date);
+    if (!date) return;
+    if (entry.kind === "period-start") openStart = date;
+    if (entry.kind === "period-end" && openStart && date >= openStart) {
+      lastDuration = Math.max(1, Math.round((date - openStart) / 86400000) + 1);
+      openStart = null;
+    }
+  });
+  if (openStart) return { status: "started", text: `Period marked as started ${formatDateOnly(openStart)}` };
+  if (lastDuration != null) return { status: "ended", text: `Last complete recorded period: ${lastDuration} days` };
+  return { status: "none", text: "No complete period interval yet" };
+}
+
 function renderInsights() {
   const days = PERIOD_DAYS[currentPeriod];
   const dates = periodDates(days);
   const sleepEntries = entriesForPeriod("sleep", dates);
   const foodEntries = entriesForPeriod("food", dates);
+  const medicationEntries = entriesForPeriod("medication", dates);
   const exerciseEntries = entriesForPeriod("exercise", dates);
   const bodyEntries = entriesForPeriod("body", dates);
+  const eventEntries = entriesForPeriod("event", dates);
+  const careEntries = entriesForPeriod("care", dates);
   const weightEntries = bodyEntries.filter(hasBodyWeight);
   const measurementEntries = bodyEntries.filter((entry) => measurementCount(entry));
   const readingEntries = entriesForPeriod("reading", dates);
   const writingEntries = entriesForPeriod("writing", dates);
 
+  updateInsightVisibility();
   document.querySelectorAll("#insightPeriod .seg").forEach((button) => {
     const active = button.dataset.period === currentPeriod;
     button.classList.toggle("active", active);
@@ -950,6 +1192,11 @@ function renderInsights() {
   const readingDays = new Set(readingEntries.map((entry) => todayKey(entry.date))).size;
   const writingMinutes = writingEntries.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
   const writingDays = new Set(writingEntries.map((entry) => todayKey(entry.date))).size;
+  const focusMinutes = readingMinutes + writingMinutes;
+  const careActions = careEntries.reduce((sum, entry) => sum + careActionLabels(entry).length, 0);
+  const careDays = new Set(careEntries.map((entry) => todayKey(entry.date))).size;
+  const medicationTaken = medicationEntries.filter((entry) => entry.status === "taken" || entry.status === "late").length;
+  const medicationMissed = medicationEntries.filter((entry) => entry.status === "missed" || entry.status === "skipped").length;
   const sortedWeights = [...weightEntries].sort((a, b) => (parseDate(a.date) || 0) - (parseDate(b.date) || 0));
   const preferredWeightUnit = bodyWeightUnit(entriesByType("body").find(hasBodyWeight) || {}) === "jin" ? "jin" : "kg";
   const preferredWeightLabel = weightUnitLabel(preferredWeightUnit);
@@ -961,12 +1208,11 @@ function renderInsights() {
   const preferredMeasurementUnit = latestMeasurement?.measurementUnit === "in" ? "in" : "cm";
 
   $("summaryMetrics").innerHTML = [
-    { label: "Average sleep", value: avgSleep == null ? "—" : `${round(avgSleep, 1)} h`, sub: `${sleepEntries.length} nights logged` },
-    { label: "Food energy", value: loggedFoodDays ? `${Math.round(foodCalories / loggedFoodDays)} kcal` : "—", sub: loggedFoodDays ? "per logged day" : "No food days logged" },
-    { label: "Active time", value: activeMinutes ? `${activeMinutes} min` : "—", sub: `${activeDays} active ${activeDays === 1 ? "day" : "days"}` },
-    { label: "Weight change", value: weightChange == null ? "—" : `${weightChange > 0 ? "+" : ""}${round(weightChange, 1)} ${preferredWeightLabel}`, sub: sortedWeights.length > 1 ? "first to latest" : "Need two entries" },
-    { label: "Reading time", value: readingMinutes ? formatDurationShort(readingMinutes) : "—", sub: `${readingDays} reading ${readingDays === 1 ? "day" : "days"}` },
-    { label: "Writing time", value: writingMinutes ? formatDurationShort(writingMinutes) : "—", sub: `${writingDays} writing ${writingDays === 1 ? "day" : "days"}` }
+    { label: "Body", value: avgSleep == null ? (bodyEntries.length + eventEntries.length || "—") : `${round(avgSleep, 1)} h`, sub: `${sleepEntries.length} rest · ${bodyEntries.length} body · ${eventEntries.length} event` },
+    { label: "Nourish", value: loggedFoodDays ? `${Math.round(foodCalories / loggedFoodDays)} kcal` : (medicationEntries.length ? `${medicationEntries.length} doses` : "—"), sub: `${loggedFoodDays} food days · ${medicationEntries.length} dose logs` },
+    { label: "Move", value: activeMinutes ? `${activeMinutes} min` : "—", sub: `${activeDays} active ${activeDays === 1 ? "day" : "days"}` },
+    { label: "Focus", value: focusMinutes ? formatDurationShort(focusMinutes) : "—", sub: `${readingDays} reading · ${writingDays} writing days` },
+    { label: "Care", value: careActions ? `${careActions} done` : "—", sub: `${careDays} care ${careDays === 1 ? "day" : "days"}` }
   ].map((item) => `
     <article class="summary-item">
       <span>${escapeHtml(item.label)}</span>
@@ -977,6 +1223,7 @@ function renderInsights() {
   const sleepHours = groupDaily(sleepEntries, dates, (entry) => entry.hours, "average");
   const sleepQuality = groupDaily(sleepEntries.filter((entry) => entry.quality), dates, (entry) => entry.quality, "average");
   const dailyFood = groupDaily(foodEntries, dates, (entry) => entry.calories);
+  const dailyMedication = groupDaily(medicationEntries, dates, () => 1);
   const dailyExercise = groupDaily(exerciseEntries, dates, (entry) => entry.minutes);
   const dailyWeight = groupDaily(weightEntries, dates, displayWeightValue, "average");
   const dailyWaist = groupDaily(measurementEntries, dates, (entry) => measurementValue(entry, "waist", preferredMeasurementUnit), "average");
@@ -984,12 +1231,15 @@ function renderInsights() {
   const dailyAbdomen = groupDaily(measurementEntries, dates, (entry) => measurementValue(entry, "abdomen", preferredMeasurementUnit), "average");
   const dailyReading = groupDaily(readingEntries, dates, (entry) => entry.minutes);
   const dailyWriting = groupDaily(writingEntries, dates, (entry) => entry.minutes);
+  const dailyEvents = groupDaily(eventEntries, dates, () => 1);
+  const dailyCare = groupDaily(careEntries, dates, (entry) => careActionLabels(entry).length);
 
   drawChart($("sleepChart"), sleepHours, {
     type: "line", color: "#2f6e4f", secondary: sleepQuality, secondaryColor: "#d09a45", maxHint: 12,
     labels: ["Hours", "Quality"]
   });
   drawChart($("foodChart"), dailyFood, { type: "bar", color: "#7ca98b" });
+  drawChart($("medicationChart"), dailyMedication, { type: "bar", color: "#8f79a8" });
   drawChart($("exerciseChart"), dailyExercise, { type: "bar", color: "#4b8767" });
   drawChart($("weightChart"), dailyWeight, { type: "line", color: "#7d6f9f", tightScale: true });
   drawChart($("bodyChart"), dailyWaist, {
@@ -1004,6 +1254,8 @@ function renderInsights() {
   });
   drawChart($("readingChart"), dailyReading, { type: "bar", color: "#6686a3" });
   drawChart($("writingChart"), dailyWriting, { type: "bar", color: "#a06f62" });
+  drawChart($("eventChart"), dailyEvents, { type: "bar", color: "#a06f62" });
+  drawChart($("careChart"), dailyCare, { type: "bar", color: "#d09a45" });
 
   $("sleepChartValue").textContent = avgSleep == null ? "No data" : `${round(avgSleep, 1)} h avg`;
   $("sleepChartSummary").textContent = avgSleep == null
@@ -1013,6 +1265,11 @@ function renderInsights() {
   $("foodChartSummary").textContent = foodEntries.length
     ? `${foodEntries.length} food ${foodEntries.length === 1 ? "entry" : "entries"} across ${loggedFoodDays} logged ${loggedFoodDays === 1 ? "day" : "days"}. Calories are estimates.`
     : "Log foods and portions to see estimated daily energy.";
+  const medicationNames = new Set(medicationEntries.map((entry) => entry.name?.trim().toLowerCase()).filter(Boolean));
+  $("medicationChartValue").textContent = medicationEntries.length ? `${medicationTaken} taken` : "No data";
+  $("medicationChartSummary").textContent = medicationEntries.length
+    ? `${medicationTaken} taken or late · ${medicationMissed} missed or skipped · ${medicationNames.size} distinct ${medicationNames.size === 1 ? "item" : "items"}.`
+    : "Log medication, supplements, or missed doses to see your intake rhythm.";
   $("exerciseChartValue").textContent = activeMinutes ? `${activeMinutes} min` : "No data";
   $("exerciseChartSummary").textContent = exerciseEntries.length
     ? `${exerciseEntries.length} ${exerciseEntries.length === 1 ? "session" : "sessions"}; estimated energy ${Math.round(exerciseEntries.reduce((sum, entry) => sum + (Number(entry.calories) || 0), 0))} kcal.`
@@ -1039,6 +1296,20 @@ function renderInsights() {
       ? `${measurementEntries.length} body check-in${measurementEntries.length === 1 ? "" : "s"}; add waist, hips, or abdomen to chart core measurements.`
       : "Log a monthly waist, hips, or abdomen measurement to see changes over time.";
 
+  const eventCounts = eventEntries.reduce((counts, entry) => {
+    counts[entry.kind] = (counts[entry.kind] || 0) + 1;
+    return counts;
+  }, {});
+  const eventBreakdown = Object.entries(eventCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([kind, count]) => `${eventKindLabels[kind] || titleCase(kind)} ${count}`);
+  const periodState = periodTrackingSummary();
+  $("eventChartValue").textContent = eventEntries.length ? `${eventEntries.length} events` : "No data";
+  $("eventChartSummary").textContent = eventEntries.length
+    ? `${eventBreakdown.join(" · ")}${periodState.status !== "none" ? ` · ${periodState.text}` : ""}.`
+    : "Log bowel movements, period boundaries, symptoms, or other events to see timing and frequency.";
+
   $("readingChartValue").textContent = readingMinutes ? formatDurationShort(readingMinutes) : "No data";
   $("readingChartSummary").textContent = readingEntries.length
     ? `${readingEntries.length} reading ${readingEntries.length === 1 ? "session" : "sessions"} across ${readingDays} ${readingDays === 1 ? "day" : "days"}.`
@@ -1048,7 +1319,17 @@ function renderInsights() {
     ? `${writingEntries.length} writing ${writingEntries.length === 1 ? "session" : "sessions"} across ${writingDays} ${writingDays === 1 ? "day" : "days"}.`
     : "Log writing sessions to see your creative rhythm.";
 
-  renderPatternInsights({ dates, sleepEntries, foodEntries, exerciseEntries, bodyEntries, readingEntries, writingEntries });
+  const careCounts = careEntries.reduce((counts, entry) => {
+    careActionLabels(entry).forEach((label) => counts[label] = (counts[label] || 0) + 1);
+    return counts;
+  }, {});
+  const topCare = Object.entries(careCounts).sort((a, b) => b[1] - a[1])[0];
+  $("careChartValue").textContent = careActions ? `${careActions} done` : "No data";
+  $("careChartSummary").textContent = careActions
+    ? `${careActions} completed actions across ${careDays} ${careDays === 1 ? "day" : "days"}${topCare ? `; most frequent: ${topCare[0]} (${topCare[1]})` : ""}.`
+    : "Log a care check-in to see which small routines are supporting you.";
+
+  renderPatternInsights({ sleepEntries, foodEntries, medicationEntries, exerciseEntries, bodyEntries, eventEntries, careEntries, readingEntries, writingEntries });
 }
 
 function formatAverage(values, suffix = "") {
@@ -1056,52 +1337,15 @@ function formatAverage(values, suffix = "") {
   return average == null ? "not rated" : `${round(average, 1)}${suffix}`;
 }
 
-function renderPatternInsights({ dates, sleepEntries, foodEntries, exerciseEntries, bodyEntries, readingEntries, writingEntries }) {
+function renderPatternInsights({ sleepEntries, foodEntries, medicationEntries, exerciseEntries, bodyEntries, eventEntries, careEntries, readingEntries, writingEntries }) {
   const patterns = [];
-  if (sleepEntries.length >= 3) {
+
+  const bodyParts = [];
+  if (sleepEntries.length) {
     const average = mean(sleepEntries.map((entry) => entry.hours));
     const trouble = sleepEntries.filter((entry) => entry.trouble && entry.trouble !== "no").length;
-    patterns.push({
-      symbol: "☾",
-      title: "Sleep consistency",
-      text: `You averaged ${round(average, 1)} hours across ${sleepEntries.length} nights${trouble ? `, with some trouble reported on ${trouble}` : " and reported no trouble"}.`
-    });
-  } else {
-    patterns.push({ symbol: "☾", title: "Sleep pattern forming", text: "Three nights of sleep times will make the first useful rest pattern visible." });
+    bodyParts.push(`${sleepEntries.length} ${sleepEntries.length === 1 ? "night" : "nights"} averaged ${round(average, 1)} hours${trouble ? `; trouble was noted ${trouble} times` : ""}`);
   }
-
-  if (foodEntries.length >= 3) {
-    const counts = foodEntries.reduce((result, entry) => {
-      result[entry.category || "other"] = (result[entry.category || "other"] || 0) + 1;
-      return result;
-    }, {});
-    const topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    const appetite = mean(foodEntries.map((entry) => entry.appetiteRating));
-    patterns.push({
-      symbol: "⌁",
-      title: "Nourishment mix",
-      text: `${foodCategoryLabels[topCategory[0]] || "Mixed foods"} is your most logged group (${topCategory[1]} entries). Appetite regulation averaged ${appetite == null ? "not yet rated" : `${round(appetite, 1)}/10`}.`
-    });
-  } else {
-    patterns.push({ symbol: "⌁", title: "Nourishment pattern forming", text: "Log at least three foods with amounts to compare food groups and appetite." });
-  }
-
-  if (exerciseEntries.length >= 2) {
-    const counts = exerciseEntries.reduce((result, entry) => {
-      result[entry.category || "cardio"] = (result[entry.category || "cardio"] || 0) + 1;
-      return result;
-    }, {});
-    const topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    const bodyScores = exerciseEntries.flatMap((entry) => [entry.muscleRating, entry.mobilityRating, entry.breathRating]).filter(Boolean);
-    patterns.push({
-      symbol: "↗",
-      title: "Movement balance",
-      text: `${exerciseCategoryLabels[topCategory[0]] || "Movement"} appears most often. Your combined body-feel rating averaged ${formatAverage(bodyScores, "/10")}.`
-    });
-  } else {
-    patterns.push({ symbol: "↗", title: "Movement pattern forming", text: "Two sessions will start showing your preferred movement and body response." });
-  }
-
   const measurementEntries = [...bodyEntries]
     .filter((entry) => measurementCount(entry))
     .sort((a, b) => (parseDate(a.date) || 0) - (parseDate(b.date) || 0));
@@ -1115,52 +1359,18 @@ function renderPatternInsights({ dates, sleepEntries, foodEntries, exerciseEntri
     const first = measurementValue(comparableMeasurement.entries[0], comparableMeasurement.key, preferredMeasurementUnit);
     const latest = measurementValue(comparableMeasurement.entries.at(-1), comparableMeasurement.key, preferredMeasurementUnit);
     const difference = latest - first;
-    patterns.push({
-      symbol: "◍",
-      title: `${definition.label} trend`,
-      text: `${definition.label} changed by ${difference > 0 ? "+" : ""}${round(difference, 1)} ${preferredMeasurementUnit} from the first to latest check-in in this period. Monthly check-ins will make this trend steadier.`
-    });
-  } else {
-    patterns.push({
-      symbol: "◍",
-      title: "Body trend forming",
-      text: "Two check-ins of the same core measurement will show your first body-dimension trend. Once a month is a useful rhythm."
-    });
+    bodyParts.push(`${definition.label} changed by ${difference > 0 ? "+" : ""}${round(difference, 1)} ${preferredMeasurementUnit}`);
+  } else if (measurementEntries.length) {
+    bodyParts.push(`${measurementEntries.length} body measurement ${measurementEntries.length === 1 ? "check-in" : "check-ins"}`);
   }
-
-  if (readingEntries.length >= 2) {
-    const counts = readingEntries.reduce((result, entry) => {
-      result[entry.category || "other"] = (result[entry.category || "other"] || 0) + 1;
-      return result;
+  if (eventEntries.length) {
+    const eventCounts = eventEntries.reduce((counts, entry) => {
+      counts[entry.kind] = (counts[entry.kind] || 0) + 1;
+      return counts;
     }, {});
-    const topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    const titles = new Set(readingEntries.map((entry) => entry.title?.trim()).filter(Boolean));
-    const total = readingEntries.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
-    patterns.push({
-      symbol: "▤",
-      title: "Reading rhythm",
-      text: `${readingCategoryLabels[topCategory[0]] || "Other"} is your most-read category. You spent ${formatDurationShort(total)} across ${titles.size || readingEntries.length} ${titles.size === 1 ? "book" : "books or sessions"}.`
-    });
-  } else {
-    patterns.push({ symbol: "▤", title: "Reading pattern forming", text: "Two reading sessions will start showing your preferred subjects and reading rhythm." });
+    const topEvent = Object.entries(eventCounts).sort((a, b) => b[1] - a[1])[0];
+    bodyParts.push(`${eventEntries.length} health ${eventEntries.length === 1 ? "event" : "events"}; ${eventKindLabels[topEvent[0]] || titleCase(topEvent[0])} appeared most often`);
   }
-
-  if (writingEntries.length >= 2) {
-    const counts = writingEntries.reduce((result, entry) => {
-      result[entry.category || "other"] = (result[entry.category || "other"] || 0) + 1;
-      return result;
-    }, {});
-    const topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    const total = writingEntries.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
-    patterns.push({
-      symbol: "✎",
-      title: "Writing rhythm",
-      text: `${writingCategoryLabels[topCategory[0]] || "Other"} appears most often. You spent ${formatDurationShort(total)} writing across ${writingEntries.length} ${writingEntries.length === 1 ? "session" : "sessions"}.`
-    });
-  } else {
-    patterns.push({ symbol: "✎", title: "Writing pattern forming", text: "Two writing sessions will start showing where your creative or focused time goes." });
-  }
-
   const exerciseDays = new Set(exerciseEntries.map((entry) => todayKey(entry.date)));
   const paired = sleepEntries.map((sleep) => {
     const wakeDate = parseDate(sleep.date);
@@ -1171,12 +1381,74 @@ function renderPatternInsights({ dates, sleepEntries, foodEntries, exerciseEntri
   const withoutMovement = paired.filter((pair) => !pair.activePriorDay).map((pair) => pair.hours);
   if (afterMovement.length >= 2 && withoutMovement.length >= 2) {
     const difference = mean(afterMovement) - mean(withoutMovement);
-    patterns.push({
-      symbol: "≈",
-      title: "Movement and next-night sleep",
-      text: `Sleep was ${Math.abs(round(difference, 1))} hours ${difference >= 0 ? "longer" : "shorter"} after logged movement days. This is an observation, not proof of cause.`
-    });
+    bodyParts.push(`sleep was ${Math.abs(round(difference, 1))} hours ${difference >= 0 ? "longer" : "shorter"} after logged movement days—an observation, not proof of cause`);
   }
+  patterns.push({
+    symbol: "◍",
+    title: "Body signals",
+    text: bodyParts.length ? `${bodyParts.join(". ")}.` : "Log sleep, measurements, or a health event to start a body pattern without needing a separate daily form."
+  });
+
+  const nourishParts = [];
+  if (foodEntries.length) {
+    const counts = foodEntries.reduce((result, entry) => {
+      result[entry.category || "other"] = (result[entry.category || "other"] || 0) + 1;
+      return result;
+    }, {});
+    const topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    const appetite = mean(foodEntries.map((entry) => entry.appetiteRating));
+    nourishParts.push(`${foodCategoryLabels[topCategory[0]] || "Mixed foods"} was the most logged food group${appetite == null ? "" : `; appetite regulation averaged ${round(appetite, 1)}/10`}`);
+  }
+  if (medicationEntries.length) {
+    const taken = medicationEntries.filter((entry) => entry.status === "taken" || entry.status === "late").length;
+    const missed = medicationEntries.length - taken;
+    nourishParts.push(`${taken} medication or supplement records were taken or late${missed ? ` and ${missed} were missed or skipped` : ""}`);
+  }
+  patterns.push({
+    symbol: "⌁",
+    title: "Nourish",
+    text: nourishParts.length ? `${nourishParts.join(". ")}.` : "Food and medication or supplement records live together here, while remaining separate and analyzable."
+  });
+
+  if (exerciseEntries.length) {
+    const counts = exerciseEntries.reduce((result, entry) => {
+      result[entry.category || "cardio"] = (result[entry.category || "cardio"] || 0) + 1;
+      return result;
+    }, {});
+    const topCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    const bodyScores = exerciseEntries.flatMap((entry) => [entry.muscleRating, entry.mobilityRating, entry.breathRating]).filter(Boolean);
+    patterns.push({
+      symbol: "↗",
+      title: "Move",
+      text: `${exerciseCategoryLabels[topCategory[0]] || "Movement"} appeared most often across ${exerciseEntries.length} ${exerciseEntries.length === 1 ? "session" : "sessions"}. Combined body-feel averaged ${formatAverage(bodyScores, "/10")}.`
+    });
+  } else {
+    patterns.push({ symbol: "↗", title: "Move", text: "Two movement sessions will start showing your preferred exercise and body response." });
+  }
+
+  const readingMinutes = readingEntries.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
+  const writingMinutes = writingEntries.reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
+  patterns.push({
+    symbol: "▤",
+    title: "Focus",
+    text: readingEntries.length || writingEntries.length
+      ? `You spent ${formatDurationShort(readingMinutes)} reading and ${formatDurationShort(writingMinutes)} writing across ${readingEntries.length + writingEntries.length} focused ${readingEntries.length + writingEntries.length === 1 ? "session" : "sessions"}.`
+      : "Reading and writing share one Focus area, while their time, subjects, and notes remain separate."
+  });
+
+  const careCounts = careEntries.reduce((counts, entry) => {
+    careActionLabels(entry).forEach((label) => counts[label] = (counts[label] || 0) + 1);
+    return counts;
+  }, {});
+  const topCare = Object.entries(careCounts).sort((a, b) => b[1] - a[1])[0];
+  const careActions = Object.values(careCounts).reduce((sum, count) => sum + count, 0);
+  patterns.push({
+    symbol: "✓",
+    title: "Care",
+    text: careActions
+      ? `${careActions} care and upkeep actions were logged${topCare ? `; ${topCare[0]} appeared most often (${topCare[1]})` : ""}. Room upkeep stays here so it does not create another top-level category.`
+      : "A single Care check-in can hold personal care, skincare, showering, and room upkeep without creating more categories."
+  });
 
   $("patternInsights").innerHTML = patterns.map((pattern) => `
     <div class="pattern-item">
@@ -1359,6 +1631,12 @@ document.addEventListener("click", (event) => {
   const nav = event.target.closest("[data-nav]");
   if (nav) showView(nav.dataset.nav);
 
+  const logGroup = event.target.closest("[data-log-group]");
+  if (logGroup) selectLogGroup(logGroup.dataset.logGroup);
+
+  const logForm = event.target.closest("[data-log-form-select]");
+  if (logForm) selectLogForm(logForm.dataset.logFormSelect);
+
   const filter = event.target.closest("[data-filter]");
   if (filter) {
     currentFilter = filter.dataset.filter;
@@ -1368,6 +1646,12 @@ document.addEventListener("click", (event) => {
   const period = event.target.closest("[data-period]");
   if (period) {
     currentPeriod = period.dataset.period;
+    renderInsights();
+  }
+
+  const insightGroup = event.target.closest("[data-insight-group]");
+  if (insightGroup) {
+    currentInsightGroup = insightGroup.dataset.insightGroup;
     renderInsights();
   }
 
@@ -1387,6 +1671,8 @@ wireRange("appetiteRating", "appetiteRatingOutput");
 wireRange("muscleRating", "muscleRatingOutput");
 wireRange("mobilityRating", "mobilityRatingOutput");
 wireRange("breathRating", "breathRatingOutput");
+wireRange("eventSeverity", "eventSeverityOutput");
+$("eventKind").addEventListener("change", updateEventFields);
 
 ["foodName", "foodAmount", "foodUnit", "foodCategory"].forEach((id) => {
   $(id).addEventListener("input", () => {
@@ -1448,7 +1734,9 @@ $("saveSleep").addEventListener("click", async () => {
   const start = parseDate($("sleepStart").value);
   const end = parseDate($("sleepEnd").value);
   const hours = updateSleepDuration();
-  if (!start || !end || !hours) return toast("Check your sleep and wake times");
+  if (!start) return toast("Enter when you fell asleep");
+  if (!end) return toast("Enter when you woke up");
+  if (!hours) return toast("Wake-up time must be after sleep time");
   addEntry("sleep", {
     start: start.toISOString(),
     end: end.toISOString(),
@@ -1465,14 +1753,42 @@ $("saveSleep").addEventListener("click", async () => {
   await saveAndRender("Sleep saved");
 });
 
+$("saveEvent").addEventListener("click", async () => {
+  const kind = $("eventKind").value;
+  const date = $("eventDate").value;
+  const name = $("eventName").value.trim();
+  const needsName = kind === "symptom" || kind === "other";
+  if (!date) return toast("Choose when the event happened");
+  if (needsName && !name) return toast("Briefly name the event or symptom");
+  addEntry("event", {
+    kind,
+    name: needsName ? name : "",
+    severity: ["diarrhea", "vomiting", "symptom", "other"].includes(kind) ? Number($("eventSeverity").value) : null,
+    bowelForm: kind === "bowel" && $("eventBowelForm").value ? Number($("eventBowelForm").value) : null,
+    ease: kind === "bowel" ? ($("eventEase").value || null) : null,
+    note: $("eventNote").value.trim()
+  }, new Date(date).toISOString());
+  $("eventName").value = "";
+  $("eventNote").value = "";
+  $("eventBowelForm").value = "";
+  $("eventEase").value = "";
+  $("eventSeverity").value = "5";
+  $("eventSeverity").dispatchEvent(new Event("input"));
+  $("eventDate").value = toLocalInputValue(new Date());
+  await saveAndRender("Health event saved");
+});
+
 $("saveFood").addEventListener("click", async () => {
   const name = $("foodName").value.trim();
-  const amount = Number($("foodAmount").value);
+  const amountInput = $("foodAmount").value.trim();
+  const amount = Number(amountInput);
   const date = $("foodDate").value;
   const calories = $("foodCalories").value === "" ? null : Number($("foodCalories").value);
   const estimate = estimateFoodCalories();
-  if (!name || !amount || amount <= 0 || !date) return toast("Enter the food, amount, and time");
-  if (calories == null || !Number.isFinite(calories)) return toast("Check the calorie estimate");
+  if (!name) return toast("Enter what you had");
+  if (!amountInput || !Number.isFinite(amount) || amount <= 0) return toast("Enter how much you had");
+  if (!date) return toast("Choose when you had it");
+  if (calories == null || !Number.isFinite(calories) || calories < 0) return toast("Check the calorie estimate");
   addEntry("food", {
     name,
     meal: $("foodMeal").value,
@@ -1493,15 +1809,40 @@ $("saveFood").addEventListener("click", async () => {
   await saveAndRender("Food saved");
 });
 
+$("saveMedication").addEventListener("click", async () => {
+  const name = $("medicationName").value.trim();
+  const amountInput = $("medicationAmount").value.trim();
+  const doseAmount = amountInput === "" ? null : Number(amountInput);
+  const date = $("medicationDate").value;
+  if (!name) return toast("Enter the medication or supplement name");
+  if (!date) return toast("Choose when it was scheduled or taken");
+  if (amountInput && (!Number.isFinite(doseAmount) || doseAmount <= 0)) return toast("Check the dose amount");
+  addEntry("medication", {
+    kind: $("medicationKind").value,
+    name,
+    doseAmount,
+    doseUnit: $("medicationUnit").value,
+    status: $("medicationStatus").value,
+    note: $("medicationNote").value.trim()
+  }, new Date(date).toISOString());
+  $("medicationName").value = "";
+  $("medicationAmount").value = "";
+  $("medicationNote").value = "";
+  $("medicationDate").value = toLocalInputValue(new Date());
+  await saveAndRender("Medication or supplement saved");
+});
+
 $("saveExercise").addEventListener("click", async () => {
   const category = $("exerciseCategory").value;
   const name = $("exerciseName").value.trim() || exerciseCategoryLabels[category];
-  const minutes = Number($("exerciseMinutes").value);
+  const minutesInput = $("exerciseMinutes").value.trim();
+  const minutes = Number(minutesInput);
   const calories = $("exerciseCalories").value === "" ? null : Number($("exerciseCalories").value);
   const date = $("exerciseDate").value;
   const estimate = estimateExerciseCalories();
-  if (!minutes || minutes <= 0 || !date) return toast("Enter exercise time and date");
-  if (calories == null || !Number.isFinite(calories)) return toast("Check the calorie estimate");
+  if (!minutesInput || !Number.isFinite(minutes) || minutes <= 0) return toast("Enter the exercise duration in minutes");
+  if (!date) return toast("Choose when you exercised");
+  if (calories == null || !Number.isFinite(calories) || calories < 0) return toast("Check the calorie estimate");
   addEntry("exercise", {
     name,
     category,
@@ -1529,7 +1870,9 @@ $("saveReading").addEventListener("click", async () => {
   const end = parseDate($("readingEnd").value);
   const minutes = updateReadingDuration();
   const title = $("readingTitle").value.trim();
-  if (!start || !end || !minutes) return toast("Check your reading start and end times");
+  if (!start) return toast("Enter when you started reading");
+  if (!end) return toast("Enter when you finished reading");
+  if (!minutes) return toast("Reading end time must be after start time");
   if (!title) return toast("Enter the book title");
   addEntry("reading", {
     start: start.toISOString(),
@@ -1550,7 +1893,9 @@ $("saveWriting").addEventListener("click", async () => {
   const start = parseDate($("writingStart").value);
   const end = parseDate($("writingEnd").value);
   const minutes = updateWritingDuration();
-  if (!start || !end || !minutes) return toast("Check your writing start and end times");
+  if (!start) return toast("Enter when you started writing");
+  if (!end) return toast("Enter when you finished writing");
+  if (!minutes) return toast("Writing end time must be after start time");
   addEntry("writing", {
     start: start.toISOString(),
     end: end.toISOString(),
@@ -1564,6 +1909,23 @@ $("saveWriting").addEventListener("click", async () => {
   setDefaultTimedActivity("writingStart", "writingEnd");
   updateWritingDuration();
   await saveAndRender("Writing saved");
+});
+
+$("saveCare").addEventListener("click", async () => {
+  const items = CARE_INPUTS.filter(({ id }) => $(id).checked).map(({ key }) => key);
+  const customItems = [...new Set($("careCustom").value.split(",").map((item) => item.trim()).filter(Boolean))];
+  const date = $("careDate").value;
+  if (!items.length && !customItems.length) return toast("Choose at least one care action");
+  if (!date) return toast("Choose a care date");
+  addEntry("care", {
+    items,
+    customItems,
+    note: $("careNote").value.trim()
+  }, new Date(`${date}T12:00:00`).toISOString());
+  CARE_INPUTS.forEach(({ id }) => $(id).checked = false);
+  $("careCustom").value = "";
+  $("careNote").value = "";
+  await saveAndRender("Care check-in saved");
 });
 
 // Backup

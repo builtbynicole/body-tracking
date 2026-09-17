@@ -2,18 +2,22 @@
 
 Verdant is a local-first, installable health tracking PWA for iPhone.
 
-## V4 tracks
+## V5 tracks
+- Five calm top-level areas—Body, Nourish, Move, Focus, and Care—with only one detailed form visible at a time
 - Combined Body entries: optional weight in kilograms or 斤 (1 斤 = 0.5 kg), plus waist, hips, abdomen (at the navel), chest/bust, upper arm, and thigh in centimetres or inches
 - Monthly body-measurement trends with automatic unit conversion; existing weight records migrate into Body entries without data loss
 - Sleep and wake times, automatic duration, sleep difficulty, quality, and notes
-- Breakfast, lunch, dinner, snacks, and supplements with food groups and portions
+- Health events including bowel movements, period start/end, diarrhea, vomiting, symptoms, and custom events
+- Breakfast, lunch, dinner, and snacks with food groups and portions
+- Medication and supplement doses, including taken, late, missed, and intentionally skipped records; old supplement food entries migrate automatically
 - Automatic, editable food-calorie estimates from an on-device reference set
 - Strength, cardio, flexibility, dance, and Chinese movement practices
 - Automatic, editable exercise-calorie estimates using METs and the latest logged weight
 - Appetite and movement reflections on 1–10 scales
 - Timed reading sessions with book title, category, automatic duration, and notes
 - Timed writing sessions with project/topic, category, automatic duration, and notes
-- Weekly, monthly, and quarterly trend charts with cautious pattern summaries for health, body measurements, reading, and writing
+- Care and upkeep check-ins for dental care, face washing, skincare, showering, room tidying, and custom routines
+- Weekly, monthly, and quarterly grouped trend charts with concise analysis across every record type
 
 ## About calorie estimates
 - Food estimates use approximate energy values and household portion weights stored in the app. Recipes, brands, and preparation methods vary, so the estimate can be corrected before saving.
