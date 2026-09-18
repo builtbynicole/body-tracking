@@ -2,8 +2,14 @@
 
 Verdant is a local-first, installable health tracking PWA for iPhone.
 
-## V6 tracks
-- A mobile-first Add screen with one-tap routines and one visible question at a time—no dropdown-heavy form wall
+## V7 tracks
+- Two proactive daily routines: a morning check-in after waking and an evening review after dinner
+- One required daily pulse per routine; every detailed question is optional and can be skipped
+- Branching questions that only appear for the areas selected that day, with a final open note
+- Encrypted draft recovery so an interrupted check-in can resume where it stopped
+- A focused “Log now” area for exact-time facts such as weight, water, medication routines, and sudden health events
+- Detailed individual records remain available behind a quiet “More records” disclosure instead of competing for attention
+- A mobile-first check-in screen with one visible question at a time—no dropdown-heavy form wall
 - Visible answer choices that advance automatically, with Back and Cancel always available
 - Reusable custom Quick entries created after saving a repeated record, plus built-in 250 mL water and Vitamin D actions
 - Five calm analysis areas—Body, Nourish, Move, Focus, and Care—without forcing those categories into the logging flow
