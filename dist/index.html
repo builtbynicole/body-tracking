@@ -4,22 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f7fbf7" />
-  <meta name="description" content="A private, local-first tracker for health, reading, writing, and personal patterns." />
+  <meta name="description" content="A private, local-first daily body tracker for sleep, intake, activity, care, measurements, physical function, and body events." />
   <meta property="og:title" content="Verdant Health Tracker" />
-  <meta property="og:description" content="One calm place for Body, Nourish, Move, Focus, and Care." />
+  <meta property="og:description" content="A calm, guided daily record for sleep, intake, activity, care, body measurements, function, and events." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://verdant-health-tracker.ardent-nova-4476.chatgpt.site" />
   <meta property="og:image" content="https://verdant-health-tracker.ardent-nova-4476.chatgpt.site/og-v5.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Verdant Health Tracker" />
-  <meta name="twitter:description" content="One calm place for Body, Nourish, Move, Focus, and Care." />
+  <meta name="twitter:description" content="A calm, guided daily record for sleep, intake, activity, care, body measurements, function, and events." />
   <meta name="twitter:image" content="https://verdant-health-tracker.ardent-nova-4476.chatgpt.site/og-v5.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Verdant" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="manifest" href="manifest.webmanifest?v=7" />
-  <link rel="stylesheet" href="styles.css?v=7" />
+  <link rel="manifest" href="manifest.webmanifest?v=9" />
+  <link rel="stylesheet" href="styles.css?v=9" />
   <title>Verdant Health Tracker</title>
 </head>
 <body>
@@ -81,19 +81,19 @@
               <small id="metricSleepSub">No entry yet</small>
             </article>
             <article class="metric-card">
-              <span class="metric-label">Nourish</span>
+              <span class="metric-label">Intake</span>
               <strong id="metricFood">—</strong>
               <small id="metricFoodSub">0 entries today</small>
             </article>
             <article class="metric-card">
-              <span class="metric-label">Move</span>
+              <span class="metric-label">Activity</span>
               <strong id="metricExercise">—</strong>
               <small id="metricExerciseSub">0 min today</small>
             </article>
             <article class="metric-card">
-              <span class="metric-label">Focus</span>
+              <span class="metric-label">Physical function</span>
               <strong id="metricFocus">—</strong>
-              <small id="metricFocusSub">No sessions today</small>
+              <small id="metricFocusSub">No assessment yet</small>
             </article>
             <article class="metric-card">
               <span class="metric-label">Care</span>
@@ -119,16 +119,16 @@
           <div class="section-title">
             <p class="eyebrow">YOUR DAILY RHYTHM</p>
             <h2>Check in</h2>
-            <p class="muted">Verdant remembers what to ask. You only answer what matters today.</p>
+            <p class="muted">Verdant remembers every category and asks one clear question at a time.</p>
           </div>
 
           <div id="logHome">
             <section class="routine-panel" aria-labelledby="routineTitle">
               <div class="section-head">
-                <div><p class="eyebrow">GUIDED</p><h3 id="routineTitle">Two gentle routines</h3></div>
-                <span class="quick-hint">1 required answer</span>
+                <div><p class="eyebrow">GUIDED</p><h3 id="routineTitle">Your daily body review</h3></div>
+                <span class="quick-hint">One complete sequence</span>
               </div>
-              <p class="muted small">Morning remembers sleep. Evening reviews the day. Everything after your daily pulse is optional.</p>
+              <p class="muted small">Sleep, intake, activity, care, weight, and body events—asked in order so nothing depends on memory.</p>
               <div id="routineList" class="routine-list"></div>
             </section>
 
@@ -140,24 +140,15 @@
               <div id="quickEntryList" class="quick-grid"></div>
               <div class="instant-grid">
                 <button class="instant-entry" data-start-flow="weight"><span>◍</span><strong>Weight</strong><small>Exact number & time</small></button>
-                <button class="instant-entry" data-start-flow="event"><span>!</span><strong>Health event</strong><small>Something sudden</small></button>
+                <button class="instant-entry" data-start-flow="measurements"><span>◎</span><strong>Body measurements</strong><small>Monthly static check</small></button>
               </div>
             </section>
 
-            <details class="entry-type-panel more-records">
-              <summary><span><strong>More records</strong><small>Only when you want extra detail</small></span></summary>
-              <div class="entry-type-grid">
-                <button class="entry-type" data-start-flow="food"><span>⌁</span><strong>Food</strong><small>Meal or snack</small></button>
-                <button class="entry-type" data-start-flow="medication"><span>✦</span><strong>Medication</strong><small>& supplements</small></button>
-                <button class="entry-type" data-start-flow="measurements"><span>◎</span><strong>Measurements</strong><small>Monthly</small></button>
-                <button class="entry-type" data-start-flow="sleep"><span>☾</span><strong>Sleep</strong><small>Night</small></button>
-                <button class="entry-type" data-start-flow="exercise"><span>↗</span><strong>Exercise</strong><small>Movement</small></button>
-                <button class="entry-type" data-start-flow="event"><span>!</span><strong>Health event</strong><small>Body signal</small></button>
-                <button class="entry-type" data-start-flow="reading"><span>▤</span><strong>Reading</strong><small>Focus time</small></button>
-                <button class="entry-type" data-start-flow="writing"><span>✎</span><strong>Writing</strong><small>Focus time</small></button>
-                <button class="entry-type" data-start-flow="care"><span>✓</span><strong>Care</strong><small>& upkeep</small></button>
-              </div>
-            </details>
+            <section class="entry-type-panel" aria-labelledby="standaloneTitle">
+              <div class="section-head"><div><p class="eyebrow">PERIODIC</p><h3 id="standaloneTitle">Objective body checks</h3></div></div>
+              <p class="muted small">These are separate because repeating them weekly or monthly is more useful than forcing them into every day.</p>
+              <button class="routine-choice" data-start-flow="function"><span class="routine-icon">↗</span><span><strong>Physical function</strong><small>Strength · mobility · balance · flexibility · breathing</small></span><span class="routine-status">Start test</span></button>
+            </section>
           </div>
 
           <section id="flowShell" class="flow-shell hidden" aria-live="polite">
@@ -166,19 +157,19 @@
               <span id="flowProgress" class="flow-progress"></span>
               <button id="flowCancel" class="flow-cancel" type="button">Cancel</button>
             </div>
+            <nav id="flowMap" class="flow-map hidden" aria-label="Daily review sections"></nav>
             <div id="flowQuestion" class="flow-question"></div>
           </section>
 
           <section class="log-picker" aria-labelledby="logPickerTitle">
             <div class="picker-heading">
               <div><p class="eyebrow">ONE CLEAR STEP</p><h3 id="logPickerTitle">What are you logging?</h3></div>
-              <span class="picker-count">5 areas</span>
+              <span class="picker-count">4 areas</span>
             </div>
             <div id="logGroups" class="choice-row" aria-label="Log area">
               <button class="choice active" data-log-group="body" aria-pressed="true">Body</button>
-              <button class="choice" data-log-group="nourish" aria-pressed="false">Nourish</button>
-              <button class="choice" data-log-group="move" aria-pressed="false">Move</button>
-              <button class="choice" data-log-group="focus" aria-pressed="false">Focus</button>
+              <button class="choice" data-log-group="nourish" aria-pressed="false">Intake</button>
+              <button class="choice" data-log-group="move" aria-pressed="false">Activity</button>
               <button class="choice" data-log-group="care" aria-pressed="false">Care</button>
             </div>
             <div id="logSubtypes" class="choice-row choice-row-secondary" aria-label="Record type">
@@ -188,8 +179,6 @@
               <button class="choice hidden" data-log-parent="nourish" data-log-form-select="food" aria-pressed="false">Food</button>
               <button class="choice hidden" data-log-parent="nourish" data-log-form-select="medication" aria-pressed="false">Medication & supplements</button>
               <button class="choice hidden" data-log-parent="move" data-log-form-select="exercise" aria-pressed="false">Exercise</button>
-              <button class="choice hidden" data-log-parent="focus" data-log-form-select="reading" aria-pressed="false">Reading</button>
-              <button class="choice hidden" data-log-parent="focus" data-log-form-select="writing" aria-pressed="false">Writing</button>
               <button class="choice hidden" data-log-parent="care" data-log-form-select="care" aria-pressed="false">Care & upkeep</button>
             </div>
           </section>
@@ -540,83 +529,6 @@
             <button id="saveExercise" class="primary">Save exercise</button>
           </div>
 
-          <div class="form-card log-form hidden" data-log-form="reading">
-            <div class="form-heading">
-              <div>
-                <p class="eyebrow">LEARNING</p>
-                <h3>Reading</h3>
-              </div>
-              <span id="readingDurationPreview" class="estimate-pill">—</span>
-            </div>
-            <div class="two-col">
-              <label class="field-label" for="readingStart">Started
-                <input id="readingStart" type="datetime-local" required />
-              </label>
-              <label class="field-label" for="readingEnd">Finished
-                <input id="readingEnd" type="datetime-local" required />
-              </label>
-            </div>
-            <p id="readingDurationHelp" class="field-help">Length is calculated automatically.</p>
-            <label class="field-label" for="readingTitle">Book title
-              <input id="readingTitle" type="text" placeholder="What are you reading?" autocomplete="off" required />
-            </label>
-            <label class="field-label" for="readingCategory">Category
-              <select id="readingCategory">
-                <option value="fiction">Fiction</option>
-                <option value="nonfiction">Nonfiction</option>
-                <option value="biography">Biography & memoir</option>
-                <option value="health">Health & wellbeing</option>
-                <option value="business">Business & work</option>
-                <option value="history">History</option>
-                <option value="science">Science & technology</option>
-                <option value="personal-growth">Personal growth</option>
-                <option value="poetry">Poetry</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-            <label class="field-label" for="readingNote">Reading note
-              <textarea id="readingNote" rows="3" placeholder="A thought, quote, or idea to remember"></textarea>
-            </label>
-            <button id="saveReading" class="primary">Save reading</button>
-          </div>
-
-          <div class="form-card log-form hidden" data-log-form="writing">
-            <div class="form-heading">
-              <div>
-                <p class="eyebrow">CREATION</p>
-                <h3>Writing</h3>
-              </div>
-              <span id="writingDurationPreview" class="estimate-pill">—</span>
-            </div>
-            <div class="two-col">
-              <label class="field-label" for="writingStart">Started
-                <input id="writingStart" type="datetime-local" required />
-              </label>
-              <label class="field-label" for="writingEnd">Finished
-                <input id="writingEnd" type="datetime-local" required />
-              </label>
-            </div>
-            <p id="writingDurationHelp" class="field-help">Length is calculated automatically.</p>
-            <label class="field-label" for="writingTopic">Project or topic
-              <input id="writingTopic" type="text" placeholder="What did you work on?" autocomplete="off" />
-            </label>
-            <label class="field-label" for="writingCategory">Category
-              <select id="writingCategory">
-                <option value="journal">Journal</option>
-                <option value="creative">Creative writing</option>
-                <option value="work">Work</option>
-                <option value="study">Study & research</option>
-                <option value="planning">Planning</option>
-                <option value="correspondence">Correspondence</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-            <label class="field-label" for="writingNote">Writing note
-              <textarea id="writingNote" rows="3" placeholder="What flowed, what felt difficult, or what comes next?"></textarea>
-            </label>
-            <button id="saveWriting" class="primary">Save writing</button>
-          </div>
-
           <div class="form-card log-form hidden" data-log-form="care">
             <div class="form-heading">
               <div>
@@ -666,16 +578,18 @@
 
           <div class="segmented insight-groups" id="insightGroup" aria-label="Trend area">
             <button class="seg active" data-insight-group="overview" aria-pressed="true">Overview</button>
-            <button class="seg" data-insight-group="body" aria-pressed="false">Body</button>
-            <button class="seg" data-insight-group="nourish" aria-pressed="false">Nourish</button>
-            <button class="seg" data-insight-group="move" aria-pressed="false">Move</button>
-            <button class="seg" data-insight-group="focus" aria-pressed="false">Focus</button>
+            <button class="seg" data-insight-group="sleep" aria-pressed="false">Sleep</button>
+            <button class="seg" data-insight-group="intake" aria-pressed="false">Intake</button>
+            <button class="seg" data-insight-group="activity" aria-pressed="false">Activity</button>
             <button class="seg" data-insight-group="care" aria-pressed="false">Care</button>
+            <button class="seg" data-insight-group="body" aria-pressed="false">Body</button>
+            <button class="seg" data-insight-group="events" aria-pressed="false">Events</button>
+            <button class="seg" data-insight-group="function" aria-pressed="false">Function</button>
           </div>
 
           <div id="summaryMetrics" class="summary-grid insight-section" data-insight-section="overview"></div>
 
-          <section class="section-card insight-card insight-section hidden" data-insight-section="body">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="sleep">
             <div class="chart-head">
               <div><p class="eyebrow">REST</p><h3>Sleep rhythm</h3></div>
               <span id="sleepChartValue" class="chart-value">—</span>
@@ -684,7 +598,7 @@
             <p id="sleepChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card insight-section hidden" data-insight-section="nourish">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="intake">
             <div class="chart-head">
               <div><p class="eyebrow">NOURISHMENT</p><h3>Food energy</h3></div>
               <span id="foodChartValue" class="chart-value">—</span>
@@ -693,7 +607,7 @@
             <p id="foodChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card insight-section hidden" data-insight-section="nourish">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="intake">
             <div class="chart-head">
               <div><p class="eyebrow">HYDRATION</p><h3>Water</h3></div>
               <span id="waterChartValue" class="chart-value">—</span>
@@ -702,7 +616,7 @@
             <p id="waterChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card insight-section hidden" data-insight-section="nourish">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="intake">
             <div class="chart-head">
               <div><p class="eyebrow">NOURISH</p><h3>Medication & supplements</h3></div>
               <span id="medicationChartValue" class="chart-value">—</span>
@@ -711,7 +625,7 @@
             <p id="medicationChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card insight-section hidden" data-insight-section="move">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="activity">
             <div class="chart-head">
               <div><p class="eyebrow">MOVEMENT</p><h3>Active time</h3></div>
               <span id="exerciseChartValue" class="chart-value">—</span>
@@ -738,31 +652,13 @@
             <p id="bodyChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card insight-section hidden" data-insight-section="body">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="events">
             <div class="chart-head">
               <div><p class="eyebrow">BODY</p><h3>Health events</h3></div>
               <span id="eventChartValue" class="chart-value">—</span>
             </div>
             <canvas id="eventChart" class="trend-chart" role="img" aria-label="Daily health event count" aria-describedby="eventChartSummary"></canvas>
             <p id="eventChartSummary" class="chart-summary muted small"></p>
-          </section>
-
-          <section class="section-card insight-card insight-section hidden" data-insight-section="focus">
-            <div class="chart-head">
-              <div><p class="eyebrow">LEARNING</p><h3>Reading time</h3></div>
-              <span id="readingChartValue" class="chart-value">—</span>
-            </div>
-            <canvas id="readingChart" class="trend-chart" role="img" aria-label="Daily reading minutes trend" aria-describedby="readingChartSummary"></canvas>
-            <p id="readingChartSummary" class="chart-summary muted small"></p>
-          </section>
-
-          <section class="section-card insight-card insight-section hidden" data-insight-section="focus">
-            <div class="chart-head">
-              <div><p class="eyebrow">CREATION</p><h3>Writing time</h3></div>
-              <span id="writingChartValue" class="chart-value">—</span>
-            </div>
-            <canvas id="writingChart" class="trend-chart" role="img" aria-label="Daily writing minutes trend" aria-describedby="writingChartSummary"></canvas>
-            <p id="writingChartSummary" class="chart-summary muted small"></p>
           </section>
 
           <section class="section-card insight-card insight-section hidden" data-insight-section="care">
@@ -774,12 +670,12 @@
             <p id="careChartSummary" class="chart-summary muted small"></p>
           </section>
 
-          <section class="section-card insight-card insight-section hidden" data-insight-section="care">
+          <section class="section-card insight-card insight-section hidden" data-insight-section="function">
             <div class="chart-head">
-              <div><p class="eyebrow">DAILY</p><h3>How you felt</h3></div>
+              <div><p class="eyebrow">OBJECTIVE</p><h3>Physical function</h3></div>
               <span id="checkinChartValue" class="chart-value">—</span>
             </div>
-            <canvas id="checkinChart" class="trend-chart" role="img" aria-label="Daily body and mind pulse ratings" aria-describedby="checkinChartSummary"></canvas>
+            <canvas id="checkinChart" class="trend-chart" role="img" aria-label="Physical function assessment trend" aria-describedby="checkinChartSummary"></canvas>
             <p id="checkinChartSummary" class="chart-summary muted small"></p>
           </section>
 
@@ -797,11 +693,13 @@
             <h2>All entries</h2>
             <div class="segmented" id="historyFilter">
               <button class="seg active" data-filter="all">All</button>
-              <button class="seg" data-filter="body">Body</button>
-              <button class="seg" data-filter="nourish">Nourish</button>
-              <button class="seg" data-filter="move">Move</button>
-              <button class="seg" data-filter="focus">Focus</button>
+              <button class="seg" data-filter="sleep">Sleep</button>
+              <button class="seg" data-filter="intake">Intake</button>
+              <button class="seg" data-filter="activity">Activity</button>
               <button class="seg" data-filter="care">Care</button>
+              <button class="seg" data-filter="body">Body</button>
+              <button class="seg" data-filter="events">Events</button>
+              <button class="seg" data-filter="function">Function</button>
             </div>
           </div>
           <div id="historyEntries" class="entry-list"></div>
@@ -821,6 +719,16 @@
           <div class="settings-card">
             <h3>About calorie estimates</h3>
             <p class="muted small">Food estimates use an on-device reference set based on <a href="https://fdc.nal.usda.gov/" target="_blank" rel="noopener noreferrer">USDA FoodData Central</a>. Exercise estimates use MET values from the <a href="https://pacompendium.com/adult-compendium/" target="_blank" rel="noopener noreferrer">2024 Compendium of Physical Activities</a>, time, intensity, and your latest weight. Both can differ from your actual energy intake or use.</p>
+          </div>
+
+          <div class="settings-card">
+            <h3>About the objective body checks</h3>
+            <p class="muted small">Physical function uses repeatable field tests: the CDC’s <a href="https://www.cdc.gov/steadi/hcp/clinical-resources/index.html" target="_blank" rel="noopener noreferrer">30-second Chair Stand, Timed Up and Go, and 4-Stage Balance tests</a>; the validated <a href="https://pubmed.ncbi.nlm.nih.gov/9864752/" target="_blank" rel="noopener noreferrer">chair sit-and-reach test</a>; resting breathing rate; and optional peak flow following <a href="https://www.nhlbi.nih.gov/sites/default/files/publications/monitoring-your-asthma.pdf" target="_blank" rel="noopener noreferrer">NHLBI guidance</a>. Use the same setup each time. Stop if you feel pain, dizziness, or unsafe; these records are trends, not a diagnosis.</p>
+          </div>
+
+          <div class="settings-card">
+            <h3>About the sleep review</h3>
+            <p class="muted small">The five-question sleep section is a lower-burden adaptation of the <a href="https://academic.oup.com/sleep/article/35/2/287/2558899" target="_blank" rel="noopener noreferrer">Consensus Sleep Diary</a>. Sleep onset, final wake, latency, total awake minutes, and quality preserve the main personal trend calculations without asking every clinical diary item.</p>
           </div>
 
           <div class="settings-card">
@@ -858,6 +766,6 @@
       <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
     </section>
   </div>
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

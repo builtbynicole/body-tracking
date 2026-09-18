@@ -5,7 +5,7 @@
   "display": "standalone",
   "background_color": "#f7fbf7",
   "theme_color": "#f7fbf7",
-  "description": "A private, local-first tracker for health, reading, writing, and personal patterns.",
+  "description": "A private guided health record with section shortcuts, duplicate-free Quick entries, and objective trends.",
   "icons": [
     {
       "src": "icon-192.png",
